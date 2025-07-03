@@ -1,8 +1,8 @@
 # Duplito 🔍 - File Lister and Duplicate Finder
 
-Duplito is a lightweight, efficient command-line tool designed to help you identify duplicate files on your system. Whether you're cleaning up old 
+Duplito is a lightweight, efficient **command-line tool** designed to help you identify duplicate files on your system. Whether you're cleaning up old 
 downloads, organizing photos, or freeing up disk space, Duplito makes the process simple and straightforward.
-Duplito lists the files in folder by highlighting what is duplicate (and where the other duplicates are) and what is not.
+Duplito lists the files in folder (like 'ls' command or like 'find') by highlighting what is duplicate (and where its duplicates are) and what is not.
 
 ## Features
 
@@ -26,6 +26,25 @@ Behavior:
 ```
 Developed by Fabiano Tarlao (2025)
 
+## Usage Examples
+
+### Updating the File Database
+
+To **update or create the files database** for all files within the `/home/pippo/` folder and its subfolders, use the `-u` option. This operation is crucial before checking for duplicates, as it builds the necessary index.
+
+```bash
+duplito -u -i /home/pippo/
+```
+
+After running this, you'll be ready to identify duplicates across all files in '/home/pippo/' and its subfolders.
+
+### Checking for Duplicates in a Specific Directory
+
+To **identify duplicate and unique files** specifically within the' /home/pippo/testdir/' directory, use the '-r' option.
+```Bash
+duplito -r -i /home/pippo/testdir/
+```
+Files with zero byte filesize are not checked to be duplicates, are flagged ZERO SIZE.  
 Typical file list example:
 
 ![duplito_example](https://github.com/user-attachments/assets/2f750281-6aff-49b9-a5b3-051b70f9af97)
