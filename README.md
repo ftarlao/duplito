@@ -27,5 +27,3 @@ Behavior:
 Developed by Fabiano Tarlao (2025)
 
 Typical file list example:
-![image](https://github.com/user-attachments/assets/59874128-68b1-48b5-be3d-ea5c2d2c99d6)
-
