@@ -27,3 +27,5 @@ Behavior:
 Developed by Fabiano Tarlao (2025)
 
 Typical file list example:
+
+![duplito_example](https://github.com/user-attachments/assets/2f750281-6aff-49b9-a5b3-051b70f9af97)
