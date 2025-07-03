@@ -1,12 +1,13 @@
-# Duplito 🔍 - Your Little Duplicate Finder
+# Duplito 🔍 - File Lister and Duplicate Finder
 
-Duplito is a lightweight, efficient GO command-line tool designed to help you quickly identify duplicate files on your system. Whether you're cleaning up old 
+Duplito is a lightweight, efficient command-line tool designed to help you identify duplicate files on your system. Whether you're cleaning up old 
 downloads, organizing photos, or freeing up disk space, Duplito makes the process simple and straightforward.
+Duplito lists the files in folder by highlighting what is duplicate (and where the other duplicates are) and what is not.
 
-## ✨ Features
+## Features
 
-* **Fast Scanning:** Utilizes efficient hashing algorithms (MD5 of file parts and size, yes an ehuristic) to compare file contents, not just names or sizes.
-* **Flexible Paths:** Scan single directories, multiple directories, or even entire drives.
+* **Fast Scanning:** Utilizes efficient hashing algorithms (quick hash: MD5 of file parts and filesize) to compare file contents, not just names or sizes.
+* **Flexible Paths:** Scan single directories, subdirectories, and even entire drives.
 * **Detailed Output:** Clearly lists all identified duplicate groups, showing their paths and sizes.
 * **Safe Operations:** Only list files and highlight duplicates, no disk changes are made
 
@@ -25,6 +26,6 @@ Behavior:
 ```
 Developed by Fabiano Tarlao (2025)
 
-Output example:
+Typical file list example:
 ![image](https://github.com/user-attachments/assets/59874128-68b1-48b5-be3d-ea5c2d2c99d6)
 
