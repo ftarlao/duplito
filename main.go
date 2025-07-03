@@ -19,7 +19,12 @@ var (
 // customUsage defines the help text for the program.
 func customUsage() {
 	fmt.Fprintf(os.Stderr, "Usage: %s [-r] [-u] [-i] [-t num_threads] <folder-path>\n\n", os.Args[0])
-	fmt.Fprintf(os.Stderr, "Finds duplicate files in folder-path using MD5 hashes stored in ~/.duplito/filemap.gob.\n")
+	fmt.Fprintf(os.Stderr, "`duplito` identifies potential duplicates using a **composite MD5 hash**\n")
+	fmt.Fprintf(os.Stderr, "derived from a portion of each file's content and its size. This\n")
+	fmt.Fprintf(os.Stderr, "hashing information is stored in a database located at\n")
+	fmt.Fprintf(os.Stderr, "`~/.duplito/filemap.gob`. The program lists all\n")
+	fmt.Fprintf(os.Stderr, "files **in a requested `folder-path`**, explicitly highlighting\n")
+	fmt.Fprintf(os.Stderr, "duplicates and indicating their respective locations.\n")
 	fmt.Fprintf(os.Stderr, "Options:\n")
 	fmt.Fprintf(os.Stderr, "  -r, --recurse         Recurse into subdirectories (automatic with -u)\n")
 	fmt.Fprintf(os.Stderr, "  -u, --update          Update hash database (implies -r)\n")
@@ -28,7 +33,7 @@ func customUsage() {
 	fmt.Fprintf(os.Stderr, "Behavior:\n")
 	fmt.Fprintf(os.Stderr, "  -u: Recursively compute and save file hashes.\n")
 	fmt.Fprintf(os.Stderr, "  No -u: Load hash database and list files with duplicate status.\n")
-	fmt.Fprintf(os.Stderr, "\nDeveloped by Fabiano Tarlao ftarlao@github.com\n\n")
+	fmt.Fprintf(os.Stderr, "\nDeveloped by Tarlao Fabiano.\n\n")
 }
 
 func init() {
