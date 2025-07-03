@@ -22,11 +22,11 @@ func Int64ToBytes(n int64) []byte {
 func RepresentBytes(numbytes int64) string {
 	switch {
 	case numbytes >= 1048576:
-		return fmt.Sprintf("%d MB", int(numbytes/1048576))
+		return fmt.Sprintf("%d MB", numbytes/1048576)
 	case numbytes >= 1024:
-		return fmt.Sprintf("%d KB", int(numbytes/1024))
+		return fmt.Sprintf("%d KB", numbytes/1024)
 	default:
-		return fmt.Sprintf("%d Byte", int(numbytes/1048576))
+		return fmt.Sprintf("%d Byte", numbytes)
 	}
 }
 
