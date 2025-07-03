@@ -9,7 +9,7 @@ Duplito lists the files in folder (like 'ls' command or like 'find') by highligh
 * **Fast Scanning:** Utilizes efficient hashing algorithms (quick hash: MD5 of file parts and filesize) to compare file contents, not just names or sizes.
 * **Flexible Paths:** Scan single directories, subdirectories, and even entire drives.
 * **Detailed Output:** Clearly lists all identified duplicate groups, showing their paths and sizes.
-* **Safe Operations:** Only list files and highlight duplicates, no disk changes are made
+* **Safe Operations:** Only lists files and highlight duplicates, no disk changes are made
 
 ```
 Usage: ./duplito [-r] [-u] [-i] [-t num_threads] <folder-path>
