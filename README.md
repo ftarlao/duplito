@@ -23,6 +23,8 @@ Behavior:
   -u: Recursively compute and save file hashes.
   No -u: Load hash database and list files with duplicate status.
 ```
+Developed by Fabiano Tarlao (2025)
+
 Output example:
 ![image](https://github.com/user-attachments/assets/59874128-68b1-48b5-be3d-ea5c2d2c99d6)
 
