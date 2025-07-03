@@ -11,6 +11,9 @@ Duplito lists the files in folder (like 'ls' command or like 'find') by highligh
 * **Detailed Output:** Clearly lists all identified duplicate groups, showing their paths and sizes.
 * **Safe Operations:** Only lists files and highlight duplicates, no disk changes are made
 
+**VERY IMPORTANT** duplito looks also at the file content, but for huge files it only looks at the hash of the first and last portion of the file, and the filesize.
+Please consider the **equality measure an ehuristic**. I'll add the full-hash feature in the future. 
+
 ```
 Usage: ./duplito [-r] [-u] [-i] [-t num_threads] <folder-path>
 
