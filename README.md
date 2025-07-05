@@ -15,9 +15,9 @@ Duplito lists the files in folder (like 'ls' command or like 'find') by highligh
 Please consider the **equality measure an ehuristic**. I'll add the full-hash feature in the future. 
 
 ```
-Usage: ./duplito [-r] [-u] [-i] [-t num_threads] <folder-path>
+Usage: ./duplito [-r] [-u] [-i] [-t num_threads] <folder-or-file-path1> [folder-or-file-path2 ...]
 
-`duplito` identifies potential duplicates using a **composite MD5 hash** derived from a portion of each file's content and its size. This hashing information is stored in a database located at `~/.duplito/filemap.gob`. The program lists all files **in a requested `folder-path`**, explicitly highlighting duplicates and indicating their respective locations.
+`duplito` identifies potential duplicates using a **composite MD5 hash** derived from a portion of each file's content and its size. This hashing information is stored in a database located at `~/.duplito/filemap.gob`. The program lists all the requested files OR the files **in a requested `folder-path`**, explicitly highlighting duplicates and indicating their respective duplicate locations.
 Options:
   -r, --recurse         Recurse into subdirectories (automatic with -u)
   -u, --update          Update hash database (implies -r)
@@ -27,6 +27,7 @@ Behavior:
   -u: Recursively compute and save file hashes.
   No -u: Load hash database and list files with duplicate status.
 ```
+
 Developed by Fabiano Tarlao (2025)
 
 ## How to Compile from Sources
@@ -53,6 +54,7 @@ In order to create a release (statically linked bin with debug stuff stripped, a
 ### Updating the File Database
 
 To **update or create the files database** for all files within the `/home/pippo/` folder and its subfolders, use the `-u` option. This operation is crucial before checking for duplicates, as it builds the necessary index.
+Please note that **the previous files database is overwritten**.
 
 ```bash
 duplito -u -i /home/pippo/
@@ -67,6 +69,12 @@ To **identify duplicate and unique files** specifically within the' /home/pippo/
 duplito -r -i /home/pippo/testdir/
 ```
 Files with zero byte filesize are not checked to be duplicates, are flagged ZERO SIZE.  
+
+You can also ask to check for duplicates by providing specific filenames or a list of paths:
+```Bash
+duplito -r -i /home/pippo/file1.txt /home/pippo/temp/file2.bin /home/pippo/testdir/
+```
+
 Typical file list example:
 
 ![duplito_example](https://github.com/user-attachments/assets/2f750281-6aff-49b9-a5b3-051b70f9af97)
