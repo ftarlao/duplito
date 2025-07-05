@@ -54,16 +54,18 @@ func main() {
 
 	flag.Parse()
 
-	args := flag.Args()
-	if len(args) != 1 {
+	paths := flag.Args() // Collect all non-flag arguments as paths
+	if len(paths) == 0 { // Ensure at least one path is provided
 		flag.Usage()
 		os.Exit(1)
 	}
-	folderPath := args[0]
 
-	if _, err := os.Stat(folderPath); os.IsNotExist(err) {
-		fmt.Fprintf(os.Stderr, "Error: folder %s does not exist\n", folderPath)
-		os.Exit(1)
+	// Validate that all provided paths exist
+	for _, path := range paths {
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "Error: path '%s' does not exist\n", path)
+			os.Exit(1)
+		}
 	}
 
 	var filesHashMap = make(map[string][]string)
@@ -71,7 +73,7 @@ func main() {
 	if updateFlag {
 		recurseFlag = true // -u implies -r
 		var err error
-		filesHashMap, err = workflow.CalculateFileHashes(folderPath, ignoreErrorsFlag, recurseFlag, numThreads)
+		filesHashMap, err = workflow.CalculateFileHashes(paths, ignoreErrorsFlag, recurseFlag, numThreads)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error calculating hashes: %v\n", err)
 			os.Exit(1)
@@ -92,7 +94,7 @@ func main() {
 		fmt.Println("Loaded configuration:")
 		fmt.Printf("Number of different files in database: %d\n", len(filesHashMap))
 		reversefilesHashMap := config.InvertMap(filesHashMap)
-		if err = workflow.ListFiles(folderPath, recurseFlag, ignoreErrorsFlag, filesHashMap, reversefilesHashMap); err != nil {
+		if err = workflow.ListFiles(paths, recurseFlag, ignoreErrorsFlag, filesHashMap, reversefilesHashMap); err != nil {
 			fmt.Fprintf(os.Stderr, "Error listing files: %v\n", err)
 			os.Exit(1)
 		}

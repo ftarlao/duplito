@@ -46,40 +46,45 @@ type fileResult struct {
 
 // findFiles walks the directory and sends file tasks to a channel.
 func findFiles(
-	root string,
+	paths []string,
 	tasks chan<- fileTask,
 	wg *sync.WaitGroup,
 	recurse, ignoreErrors bool,
-	rootPath string,
 	ctx context.Context,
 ) {
 	defer wg.Done()
-	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
-		select {
-		case <-ctx.Done():
-			// The context has been cancelled. Time to stop.
-			return errors.New("File search stops")
-			// Exits the goroutine and file walking
-		default:
 
-		}
+	for _, pathname := range paths {
+		err := filepath.WalkDir(pathname, func(path string, d os.DirEntry, err error) error {
+			select {
+			case <-ctx.Done():
+				// The context has been cancelled. Time to stop.
+				return errors.New("File search stops")
+				// Exits the goroutine and file walking
+			default:
 
-		absPath, filesize, checkErr := utils.CheckFile(path, d, err, recurse, rootPath)
-		if checkErr != nil && checkErr != filepath.SkipDir {
-			fmt.Fprintf(os.Stderr, "Error while accessing file %s details: %v\n", path, err)
-			if ignoreErrors {
-				checkErr = nil
 			}
-			return checkErr
-		}
-		if absPath == "" { // Skipped by checkFile (e.g., directory, symlink, non-regular, or ignored error)
+
+			absPath, filesize, checkErr := utils.CheckFile(path, d, err, recurse, path)
+			if checkErr != nil && checkErr != filepath.SkipDir {
+				fmt.Fprintf(os.Stderr, "Error while accessing file %s details: %v\n", path, err)
+				if ignoreErrors {
+					checkErr = nil
+				}
+				return checkErr
+			}
+			if absPath == "" { // Skipped by checkFile (e.g., directory, symlink, non-regular, or ignored error)
+				return nil
+			}
+			tasks <- fileTask{Path: path, AbsPath: absPath, Filesize: filesize}
 			return nil
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error during directory walk %s: %v\n", pathname, err)
+			if !ignoreErrors {
+				break
+			}
 		}
-		tasks <- fileTask{Path: path, AbsPath: absPath, Filesize: filesize}
-		return nil
-	})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error during directory walk %s: %v\n", root, err)
 	}
 	close(tasks) // Important: close the channel when all tasks are sent
 }
@@ -168,7 +173,7 @@ func collectResults(
 // If ignoreErrors is true, skips unreadable/inaccessible files, logs them to stderr, and continues.
 // If ignoreErrors is false, returns an error on the first failure.
 // Displays current read speed in-place and final average read speed.
-func CalculateFileHashes(folderPath string, ignoreErrors bool, recurseFlag bool, threads int) (map[string][]string, error) {
+func CalculateFileHashes(paths []string, ignoreErrors bool, recurseFlag bool, threads int) (map[string][]string, error) {
 	// This gives us a 'ctx' to pass to goroutines and a 'cancel' function
 	// to call when we want to stop them.
 	ctx, cancel := context.WithCancel(context.Background())
@@ -190,7 +195,7 @@ func CalculateFileHashes(folderPath string, ignoreErrors bool, recurseFlag bool,
 
 	// 1. Start the file finder goroutine
 	wgFindFiles.Add(1)
-	go findFiles(folderPath, tasks, &wgFindFiles, recurseFlag, ignoreErrors, folderPath, ctx)
+	go findFiles(paths, tasks, &wgFindFiles, recurseFlag, ignoreErrors, ctx)
 
 	// 2. Start worker goroutines
 	for i := 0; i < threads; i++ {
@@ -323,36 +328,45 @@ func CalculateFileHashes(folderPath string, ignoreErrors bool, recurseFlag bool,
 //   - Duplicate paths (cyan) indented two tabs (16 spaces) from the filename column start.
 // Groups files by directory with blank lines for separation.
 // Respects ignoreErrors for file access issues.
-func ListFiles(folderPath string, recurse bool, ignoreErrors bool, hashMap map[string][]string, reverseHashMap map[string]string) error {
+func ListFiles(paths []string, recurse bool, ignoreErrors bool, hashMap map[string][]string, reverseHashMap map[string]string) error {
 	TERM_POS := 100
 
 	filesByDir := make(map[string][]string)
 	sizesByPath := make(map[string]int64) // Store sizes for output
-	err := filepath.WalkDir(folderPath, func(path string, d os.DirEntry, err error) error {
-		absPath, size, err := utils.CheckFile(path, d, err, recurse, folderPath)
-		if err != nil && err != filepath.SkipDir {
-			fmt.Fprintf(os.Stderr, "Error while accessing file %s details: %v\n", path, err)
-			if ignoreErrors {
-				err = nil
+
+	for _, pathname := range paths {
+		err := filepath.WalkDir(pathname, func(path string, d os.DirEntry, err error) error {
+			absPath, size, err := utils.CheckFile(path, d, err, recurse, pathname)
+			if err != nil && err != filepath.SkipDir {
+				fmt.Fprintf(os.Stderr, "Error while accessing file %s details: %v\n", path, err)
+				if ignoreErrors {
+					err = nil
+				}
+				return err
 			}
-			return err
-		}
-		if err != nil {
-			return err
-		}
-		if absPath == "" {
-			return nil
-		}
-		if _, exists := reverseHashMap[absPath]; exists {
+			if err != nil {
+				return err
+			}
+			if absPath == "" {
+				return nil
+			}
+
+			//here we add also files not in DB
 			dir := filepath.Dir(absPath)
 			filesByDir[dir] = append(filesByDir[dir], absPath)
 			sizesByPath[absPath] = size
+
+			return nil
+		})
+		if err != nil {
+			errwalk := fmt.Errorf("failed to walk directory or access file %s: %w", pathname, err)
+			fmt.Fprintf(os.Stderr, errwalk.Error())
+			if !ignoreErrors {
+				return err
+			}
 		}
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to walk directory %s: %w", folderPath, err)
 	}
+
 	var dirs []string
 	for dir := range filesByDir {
 		dirs = append(dirs, dir)
@@ -383,7 +397,12 @@ func ListFiles(folderPath string, recurse bool, ignoreErrors bool, hashMap map[s
 				fmt.Printf(" %sZERO SIZE%s\n", ColorYellow, ColorReset)
 				continue
 			}
-			hash := reverseHashMap[path]
+			hash, exists := reverseHashMap[path]
+			if !exists {
+				fmt.Printf(" %sFILE NOT IN DATABASE%s\n", ColorYellow, ColorReset)
+				continue
+			}
+
 			if len(hashMap[hash]) == 1 {
 				fmt.Printf(" %sNOT DUPLICATE (%s)%s\n",
 					ColorGreen,
