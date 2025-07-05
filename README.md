@@ -29,6 +29,25 @@ Behavior:
 ```
 Developed by Fabiano Tarlao (2025)
 
+## How to Compile from Sources
+
+Install git and golang  
+
+```
+git clone https://github.com/ftarlao/duplito.git
+cd duplito
+go mod tidy         (don't now, perhaps not mandatory)
+```
+
+In order to create a bin for local usage with all debug symbols:
+
+```go build -o duplito```
+
+In order to create a release (statically linked bin with debug stuff stripped, and useless path info removed):
+
+```CGO_ENABLED=0 go build -a -trimpath -ldflags '-extldflags "-static" -s -w' -o duplito```
+
+
 ## Usage Examples
 
 ### Updating the File Database
