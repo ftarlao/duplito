@@ -30,8 +30,7 @@ func RepresentBytes(numbytes int64) string {
 	}
 }
 
-// PrintSeparator prints a line of hyphens that tries to match the terminal width.
-// If the width cannot be determined (e.g., not running in a TTY), it prints a default length.
+// PrintSeparator prints a line of hyphens that matches the desired width.
 func PrintSeparator(len int) {
 
 	// Create a string of hyphens with the determined width
@@ -93,6 +92,7 @@ func MD5QuickHash(file io.Reader, areasize int64, fileSize int64) (string, error
 	//hashing
 	if fileSize != 0 {
 		if _, err := io.CopyN(hash, file, readsize); err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
+			//EOF are not considered errors, but simply end of the job
 			return "", fmt.Errorf("failed to hash: %w", err)
 		}
 		if !tinyfile {
@@ -101,6 +101,7 @@ func MD5QuickHash(file io.Reader, areasize int64, fileSize int64) (string, error
 				return "", fmt.Errorf("failed to seek to last %d bytes: %w", readsize, err)
 			}
 			if _, err := io.CopyN(hash, file, readsize); err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
+				//EOF are not considered errors, but simply end of the job
 				return "", fmt.Errorf("failed to hash: %w", err)
 			}
 		}
