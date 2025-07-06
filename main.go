@@ -30,7 +30,7 @@ func customUsage() {
 	fmt.Fprintf(os.Stderr, "Options:\n")
 	fmt.Fprintf(os.Stderr, "  -r, --recurse         Recurse into subdirectories (automatic with -u)\n")
 	fmt.Fprintf(os.Stderr, "  -u, --update          Update hash database using the quick-partial hash (implies -r)\n")
-	fmt.Fprintf(os.Stderr, "  -U, --update          Update hash database using the full file hash (implies -r)\n")
+	fmt.Fprintf(os.Stderr, "  -U, --UPDATE          Update hash database using the full file hash (implies -r)\n")
 	fmt.Fprintf(os.Stderr, "  -i, --ignore-errors   Ignore unreadable/inaccessible files\n")
 	fmt.Fprintf(os.Stderr, "  -t, --threads         Number of concurrent hashing threads (default: 3)\n")
 	fmt.Fprintf(os.Stderr, "Behavior:\n")
