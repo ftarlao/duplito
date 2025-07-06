@@ -6,6 +6,7 @@ import (
 	"os"
 
 	config "github.com/ftarlao/duplito/config"
+	utils "github.com/ftarlao/duplito/utils"
 	workflow "github.com/ftarlao/duplito/workflow"
 )
 
@@ -18,13 +19,13 @@ var (
 
 // customUsage defines the help text for the program.
 func customUsage() {
-	fmt.Fprintf(os.Stderr, "Usage: %s [-r] [-u] [-i] [-t num_threads] <folder-path>\n\n", os.Args[0])
+	fmt.Fprintf(os.Stderr, "Usage: %s [-r] [-u] [-i] [-t num_threads] <folder-or-file-path1> [folder-or-file-path2 ...]\n\n", os.Args[0])
 	fmt.Fprintf(os.Stderr, "`duplito` identifies potential duplicates using a **composite MD5 hash** ")
 	fmt.Fprintf(os.Stderr, "derived from a portion of each file's content and its size. This ")
 	fmt.Fprintf(os.Stderr, "hashing information is stored in a database located at ")
-	fmt.Fprintf(os.Stderr, "`~/.duplito/filemap.gob`. The program lists all ")
+	fmt.Fprintf(os.Stderr, "`~/.duplito/filemap.gob`. The program lists all the requested files OR the ")
 	fmt.Fprintf(os.Stderr, "files **in a requested `folder-path`**, explicitly highlighting ")
-	fmt.Fprintf(os.Stderr, "duplicates and indicating their respective locations.\n")
+	fmt.Fprintf(os.Stderr, "duplicates and indicating their respective duplicate locations.\n")
 	fmt.Fprintf(os.Stderr, "Options:\n")
 	fmt.Fprintf(os.Stderr, "  -r, --recurse         Recurse into subdirectories (automatic with -u)\n")
 	fmt.Fprintf(os.Stderr, "  -u, --update          Update hash database (implies -r)\n")
@@ -68,7 +69,7 @@ func main() {
 		}
 	}
 
-	var filesHashMap = make(map[string][]string)
+	var filesHashMap = make(map[utils.HashPair][]string)
 
 	if updateFlag {
 		recurseFlag = true // -u implies -r
@@ -82,7 +83,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error saving config: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Println("Configuration updated successfully")
+		fmt.Println("\nConfiguration updated successfully")
 		fmt.Printf("Number of different files in database: %d\n", len(filesHashMap))
 	} else {
 		var err error

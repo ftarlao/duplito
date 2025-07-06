@@ -60,6 +60,11 @@ func MD5hash(file io.Reader) (string, error) {
 	return hashSum, nil
 }
 
+type HashPair struct {
+	Filesize int64 //please note this come first, useful for equality check
+	Hash     string
+}
+
 func MD5QuickHash(file io.Reader, areasize int64, fileSize int64) (string, error) {
 	const BIG_MULTIPLIER int = 10
 	var tinyfile bool = false
