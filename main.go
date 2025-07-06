@@ -13,6 +13,7 @@ import (
 var (
 	recurseFlag      bool
 	updateFlag       bool
+	updateFullFlag   bool
 	ignoreErrorsFlag bool
 	numThreads       int // New flag for number of threads
 )
@@ -21,14 +22,15 @@ var (
 func customUsage() {
 	fmt.Fprintf(os.Stderr, "Usage: %s [-r] [-u] [-i] [-t num_threads] <folder-or-file-path1> [folder-or-file-path2 ...]\n\n", os.Args[0])
 	fmt.Fprintf(os.Stderr, "`duplito` identifies potential duplicates using a **composite MD5 hash** ")
-	fmt.Fprintf(os.Stderr, "derived from a portion of each file's content and its size. This ")
+	fmt.Fprintf(os.Stderr, "derived from each file's content and its size. This ")
 	fmt.Fprintf(os.Stderr, "hashing information is stored in a database located at ")
 	fmt.Fprintf(os.Stderr, "`~/.duplito/filemap.gob`. The program lists all the requested files OR the ")
 	fmt.Fprintf(os.Stderr, "files **in a requested `folder-path`**, explicitly highlighting ")
 	fmt.Fprintf(os.Stderr, "duplicates and indicating their respective duplicate locations.\n")
 	fmt.Fprintf(os.Stderr, "Options:\n")
 	fmt.Fprintf(os.Stderr, "  -r, --recurse         Recurse into subdirectories (automatic with -u)\n")
-	fmt.Fprintf(os.Stderr, "  -u, --update          Update hash database (implies -r)\n")
+	fmt.Fprintf(os.Stderr, "  -u, --update          Update hash database using the quick-partial hash (implies -r)\n")
+	fmt.Fprintf(os.Stderr, "  -U, --update          Update hash database using the full file hash (implies -r)\n")
 	fmt.Fprintf(os.Stderr, "  -i, --ignore-errors   Ignore unreadable/inaccessible files\n")
 	fmt.Fprintf(os.Stderr, "  -t, --threads         Number of concurrent hashing threads (default: 3)\n")
 	fmt.Fprintf(os.Stderr, "Behavior:\n")
@@ -49,6 +51,8 @@ func init() {
 	flag.BoolVar(&ignoreErrorsFlag, "ignore-errors", false, "")
 	flag.IntVar(&numThreads, "t", 3, "")       // Changed default to 3 threads
 	flag.IntVar(&numThreads, "threads", 3, "") // Changed default to 3 threads
+	flag.BoolVar(&updateFullFlag, "U", false, "")
+	flag.BoolVar(&updateFullFlag, "UPDATE", false, "")
 }
 
 func main() {
@@ -71,10 +75,10 @@ func main() {
 
 	var filesHashMap = make(map[utils.HashPair][]string)
 
-	if updateFlag {
+	if updateFlag || updateFullFlag {
 		recurseFlag = true // -u implies -r
 		var err error
-		filesHashMap, err = workflow.CalculateFileHashes(paths, ignoreErrorsFlag, recurseFlag, numThreads)
+		filesHashMap, err = workflow.CalculateFileHashes(paths, ignoreErrorsFlag, recurseFlag, numThreads, updateFullFlag)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error calculating hashes: %v\n", err)
 			os.Exit(1)

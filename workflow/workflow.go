@@ -95,6 +95,7 @@ func fileWorker(
 	results chan fileResult,
 	wg *sync.WaitGroup,
 	ignoreErrors bool,
+	fullHash bool,
 	cancel context.CancelFunc,
 ) {
 	defer wg.Done()
@@ -110,8 +111,13 @@ func fileWorker(
 				return
 			}
 		}
+		var hashSum string
 
-		hashSum, err := utils.MD5QuickHash(file, 2*1024*1024, task.Filesize)
+		if !fullHash {
+			hashSum, err = utils.MD5QuickHash(file, 2*1024*1024, task.Filesize)
+		} else {
+			hashSum, err = utils.MD5hash(file)
+		}
 		hashPair := utils.HashPair{
 			Hash:     hashSum,
 			Filesize: task.Filesize,
@@ -176,7 +182,7 @@ func collectResults(
 // If ignoreErrors is true, skips unreadable/inaccessible files, logs them to stderr, and continues.
 // If ignoreErrors is false, returns an error on the first failure.
 // Displays current read speed in-place and final average read speed.
-func CalculateFileHashes(paths []string, ignoreErrors bool, recurseFlag bool, threads int) (map[utils.HashPair][]string, error) {
+func CalculateFileHashes(paths []string, ignoreErrors bool, recurseFlag bool, threads int, fullHash bool) (map[utils.HashPair][]string, error) {
 	// This gives us a 'ctx' to pass to goroutines and a 'cancel' function
 	// to call when we want to stop them.
 	ctx, cancel := context.WithCancel(context.Background())
@@ -203,7 +209,7 @@ func CalculateFileHashes(paths []string, ignoreErrors bool, recurseFlag bool, th
 	// 2. Start worker goroutines
 	for i := 0; i < threads; i++ {
 		wgWorkers.Add(1)
-		go fileWorker(i+1, tasks, results, &wgWorkers, ignoreErrors, cancel)
+		go fileWorker(i+1, tasks, results, &wgWorkers, ignoreErrors, fullHash, cancel)
 	}
 
 	// 3. Start results collector goroutine

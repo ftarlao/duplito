@@ -79,6 +79,8 @@ func MD5QuickHash(file io.Reader, areasize int64, fileSize int64) (string, error
 		return "", fmt.Errorf("file does not support seeking")
 	}
 	var readsize int64
+
+	//when fullhash all looks tiny
 	if int64(BIG_MULTIPLIER)*areasize >= fileSize {
 		//seek time has a cost, for these reason
 		tinyfile = true
@@ -103,8 +105,7 @@ func MD5QuickHash(file io.Reader, areasize int64, fileSize int64) (string, error
 			}
 		}
 	}
-	//add tilesize info to the hash generation
-	hash.Write(Int64ToBytes(fileSize))
+
 	hashSum := hex.EncodeToString(hash.Sum(nil))
 	return hashSum, nil
 
