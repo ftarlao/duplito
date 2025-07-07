@@ -2,7 +2,7 @@
 
 Duplito is a lightweight, efficient **command-line tool** designed to help you identify duplicate files on your system. Whether you're cleaning up old 
 downloads, organizing photos, or freeing up disk space, Duplito makes the process simple and straightforward.
-Duplito lists the files in folder (like 'ls' command or like 'find') by highlighting what is duplicate (and where its duplicates are) and what is not.
+Duplito lists the files in folders (like 'ls' command or like 'find') by highlighting what is duplicate (and where its duplicates are) and what is not.
 
 ## Features
 
@@ -11,8 +11,8 @@ Duplito lists the files in folder (like 'ls' command or like 'find') by highligh
 * **Detailed Output:** Clearly lists all identified duplicate groups, showing their paths and sizes.
 * **Safe Operations:** Only lists files and highlight duplicates, no disk changes are made
 
-**VERY IMPORTANT** duplito looks also at the file content, but for huge files it only looks at the hash of the first and last portion of the file, and the filesize.
-Please consider the **equality measure an ehuristic**. I'll add the full-hash feature in the future. 
+**VERY IMPORTANT** duplito looks also at the file content, but with -u, for huge files it only looks at the hash of the first and last portion of the file, and the filesize.
+Please consider with -u the **equality measure an ehuristic**. For the full hash use -U 
 
 ```
 Usage: ./duplito [-r] [-u] [-i] [-t num_threads] <folder-or-file-path1> [folder-or-file-path2 ...]
@@ -77,6 +77,11 @@ Files with zero byte filesize are not checked to be duplicates, are flagged ZERO
 You can also ask to check for duplicates by providing specific filenames or a list of paths:
 ```Bash
 duplito -r -i /home/pippo/file1.txt /home/pippo/temp/file2.bin /home/pippo/testdir/
+```
+
+You can also use the **shell expansion** to check for files with specific name pattern:
+```Bash
+duplito -r -i /home/pippo/*.txt 
 ```
 
 Typical file list example:
