@@ -24,7 +24,7 @@ highlighting duplicates and indicating their respective duplicate locations.
 Options:
   -r, --recurse         Recurse into subdirectories (automatic with -u)
   -u, --update          Update hash database using the quick-partial hash (implies -r)
-  -U, --update          Update hash database using the full file hash (implies -r)
+  -U, --UPDATE          Update hash database using the full file hash (implies -r)
   -i, --ignore-errors   Ignore unreadable/inaccessible files
   -t, --threads         Number of concurrent hashing threads (default: 3)
 Behavior:
