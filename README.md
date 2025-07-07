@@ -17,7 +17,10 @@ Please consider the **equality measure an ehuristic**. I'll add the full-hash fe
 ```
 Usage: ./duplito [-r] [-u] [-i] [-t num_threads] <folder-or-file-path1> [folder-or-file-path2 ...]
 
-`duplito` identifies potential duplicates using a **composite MD5 hash** derived from each file's content and its size. This hashing information is stored in a database located at `~/.duplito/filemap.gob`. The program lists all the requested files OR the files **in a requested `folder-path`**, explicitly highlighting duplicates and indicating their respective duplicate locations.
+`duplito` identifies potential duplicates using a **composite MD5 hash** derived from each file's content
+and its size. This hashing information is stored in a database located at `~/.duplito/filemap.gob`.
+The program lists all the requested files OR the files **in a requested `folder-path`**, explicitly
+highlighting duplicates and indicating their respective duplicate locations.
 Options:
   -r, --recurse         Recurse into subdirectories (automatic with -u)
   -u, --update          Update hash database using the quick-partial hash (implies -r)
