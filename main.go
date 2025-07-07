@@ -20,23 +20,37 @@ var (
 
 // customUsage defines the help text for the program.
 func customUsage() {
-	fmt.Fprintf(os.Stderr, "Usage: %s [-r] [-u] [-i] [-t num_threads] <folder-or-file-path1> [folder-or-file-path2 ...]\n\n", os.Args[0])
-	fmt.Fprintf(os.Stderr, "`duplito` identifies potential duplicates using a **composite MD5 hash** ")
-	fmt.Fprintf(os.Stderr, "derived from each file's content and its size. This ")
-	fmt.Fprintf(os.Stderr, "hashing information is stored in a database located at ")
-	fmt.Fprintf(os.Stderr, "`~/.duplito/filemap.gob`. The program lists all the requested files OR the ")
-	fmt.Fprintf(os.Stderr, "files **in a requested `folder-path`**, explicitly highlighting ")
-	fmt.Fprintf(os.Stderr, "duplicates and indicating their respective duplicate locations.\n")
+	appName := os.Args[0] // Get the program name
+
+	// Usage Line (fits easily)
+	fmt.Fprintf(os.Stderr, "Usage: %s [-rUu] [-i] [-t num_threads] [<path1> ...]\n\n", appName)
+
+	// Description
+	fmt.Fprintf(os.Stderr, "%s identifies potential duplicates using a **composite MD5 hash**\n", appName)
+	fmt.Fprintf(os.Stderr, "derived from each file's content and size. Hashing info is\n")
+	fmt.Fprintf(os.Stderr, "stored at `~/.duplito/filemap.gob`. The program lists all\n")
+	fmt.Fprintf(os.Stderr, "requested files OR files in a `folder-path`, highlighting\n")
+	fmt.Fprintf(os.Stderr, "duplicates and their respective locations.\n\n")
+
+	// Options
 	fmt.Fprintf(os.Stderr, "Options:\n")
-	fmt.Fprintf(os.Stderr, "  -r, --recurse         Recurse into subdirectories (automatic with -u)\n")
-	fmt.Fprintf(os.Stderr, "  -u, --update          Update hash database using the quick-partial hash (implies -r)\n")
-	fmt.Fprintf(os.Stderr, "  -U, --UPDATE          Update hash database using the full file hash (implies -r)\n")
-	fmt.Fprintf(os.Stderr, "  -i, --ignore-errors   Ignore unreadable/inaccessible files\n")
-	fmt.Fprintf(os.Stderr, "  -t, --threads         Number of concurrent hashing threads (default: 3)\n")
+	fmt.Fprintf(os.Stderr, "  -r, --recurse         Recurse into subdirectories (auto with -u or -U).\n")
+	fmt.Fprintf(os.Stderr, "  -u, --update          Update hash database using quick-partial hash (implies -r).\n")
+	fmt.Fprintf(os.Stderr, "                        If no paths, defaults to user home (or / for root).\n")
+	fmt.Fprintf(os.Stderr, "  -U, --UPDATE          Update hash database using full file hash (implies -r).\n")
+	fmt.Fprintf(os.Stderr, "                        If no paths, defaults to user home (or / for root).\n")
+	fmt.Fprintf(os.Stderr, "  -i, --ignore-errors   Ignore unreadable/inaccessible files.\n")
+	fmt.Fprintf(os.Stderr, "  -t, --threads         Number of concurrent hashing threads (default: 3).\n\n")
+
+	// Behavior Notes
 	fmt.Fprintf(os.Stderr, "Behavior:\n")
-	fmt.Fprintf(os.Stderr, "  -u: Recursively compute and save file hashes.\n")
-	fmt.Fprintf(os.Stderr, "  No -u: Load hash database and list files with duplicate status.\n")
-	fmt.Fprintf(os.Stderr, "\nDeveloped by Tarlao Fabiano.\n\n")
+	fmt.Fprintf(os.Stderr, "  -u or -U: Recursively computes and saves file hashes. Paths are\n")
+	fmt.Fprintf(os.Stderr, "            optional, defaulting to user home or /.\n")
+	fmt.Fprintf(os.Stderr, "  No -u/-U: Loads hash database and lists files with duplicate status.\n")
+	fmt.Fprintf(os.Stderr, "            Paths or filenames are required for this mode.\n\n")
+
+	// Developer Credit
+	fmt.Fprintf(os.Stderr, "Developed by Tarlao Fabiano.\n\n")
 }
 
 func init() {
@@ -60,9 +74,19 @@ func main() {
 	flag.Parse()
 
 	paths := flag.Args() // Collect all non-flag arguments as paths
+
 	if len(paths) == 0 { // Ensure at least one path is provided
-		flag.Usage()
-		os.Exit(1)
+		if updateFlag || updateFullFlag { //manage the -u case that is permessive
+			userPath, uerr := utils.UserPathInfo()
+			if uerr != nil {
+				fmt.Printf(uerr.Error())
+				os.Exit(1)
+			}
+			paths = append(paths, userPath)
+		} else {
+			flag.Usage()
+			os.Exit(1)
+		}
 	}
 
 	// Validate that all provided paths exist

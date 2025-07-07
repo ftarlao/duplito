@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strings"
 	// Import the term package
@@ -159,4 +160,23 @@ func MaxFilenameLength(paths []string) int {
 		maxLen = 10
 	}
 	return maxLen
+}
+
+func UserPathInfo() (string, error) {
+	currentUser, err := user.Current()
+	if err != nil {
+		uerr := fmt.Errorf("Error getting current user: %v", err)
+		return "", uerr
+	}
+
+	// Check if running as root (UID 0) or effectively root (if sudo, though `user.Current()` usually gives the invoking user)
+	// For a more robust check for sudo, you might check for SUDO_UID or other env vars,
+	// but checking UID 0 is the most direct for root.
+	if currentUser.Uid == "0" { // Root user
+		fmt.Fprintln(os.Stderr, "No path specified with -u/-U. Defaulting to ALL filesystem (root /) as current user is root.")
+		return "/", nil // Default to filesystem root
+	} else { // Normal user
+		fmt.Fprintf(os.Stderr, "No path specified with -u/-U. Defaulting to user home directory (%s).\n", currentUser.HomeDir)
+		return currentUser.HomeDir, nil // Default to user's home directory
+	}
 }
