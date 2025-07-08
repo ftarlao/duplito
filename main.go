@@ -19,6 +19,7 @@ var (
 	warnings         bool
 	summary          bool
 	overall          bool
+	minperc          int
 	outputType       int //0 ALL, 1 SUMMARY, 2 ONLY FINAL SUMMARY
 )
 
@@ -45,9 +46,11 @@ func customUsage() {
 	fmt.Fprintf(os.Stderr, "                        If no paths, defaults to user home (or / for root).\n")
 	fmt.Fprintf(os.Stderr, "  -i, --ignore-errors   Ignore unreadable/inaccessible files.\n")
 	fmt.Fprintf(os.Stderr, "  -t, --threads         Number of concurrent hashing threads (default: 3).\n\n")
-	fmt.Fprintf(os.Stderr, "  -s, --summary         Display only directory summaries and the final overall summary,\n")
-	fmt.Fprintf(os.Stderr, "                        with statistics.\n")
+	fmt.Fprintf(os.Stderr, "  -s, --summary         Display only 'per' directory summaries and the final overall\n")
+	fmt.Fprintf(os.Stderr, "                        summary, with statistics.\n")
 	fmt.Fprintf(os.Stderr, "  -o, --overall         Display only the final overall summary with statistics.\n\n")
+	fmt.Fprintf(os.Stderr, "  -m, --minimum         Visualizes summary and file list for folders with a percentage\n")
+	fmt.Fprintf(os.Stderr, "                        of duplicates greater than the specified value (default: 0%%).\n")
 
 	// Behavior Notes
 	fmt.Fprintf(os.Stderr, "Behavior:\n")
@@ -78,6 +81,8 @@ func init() {
 	flag.BoolVar(&summary, "summary", false, "") //only folder summary and final summary
 	flag.BoolVar(&overall, "o", false, "")       //only final summary
 	flag.BoolVar(&overall, "overall", false, "")
+	flag.IntVar(&minperc, "m", 0, "")
+	flag.IntVar(&minperc, "minimum", 0, "")
 }
 
 func main() {
@@ -155,7 +160,8 @@ func main() {
 			ignoreErrorsFlag,
 			filesHashMap,
 			reversefilesHashMap,
-			outputType); err != nil {
+			outputType,
+			minperc); err != nil {
 			fmt.Fprintf(os.Stderr, "Error listing files: %v\n", err)
 			os.Exit(1)
 		}

@@ -255,6 +255,7 @@ func processSingleFolder(
 	hashMap map[utils.HashPair][]string,
 	reverseHashMap map[string]utils.HashPair,
 	outputType int,
+	minperc int,
 ) {
 	var sb strings.Builder
 	var dirStats counters.Stats
@@ -307,25 +308,25 @@ func processSingleFolder(
 		}
 	}
 
-	//Output Directory header
-	if outputType <= 1 {
-		fmt.Print(ColorLightBlue)
-		separatorLen := utils.Min(len(dir)*2, 70)
-		utils.PrintSeparator(separatorLen)
-		fmt.Printf("FOLDER: %s\n", dir)
-		fmt.Print(dirStats.StringSummary())
-		utils.PrintSeparator(separatorLen)
-		fmt.Print(ColorReset)
+	if minperc <= utils.Max(int(dirStats.DupPerc()), int(dirStats.DupSizePerc())) {
+		//Output Directory header
+		if outputType <= 1 {
+			fmt.Print(ColorLightBlue)
+			separatorLen := utils.Min(len(dir)*2, 70)
+			utils.PrintSeparator(separatorLen)
+			fmt.Printf("FOLDER: %s\n", dir)
+			fmt.Print(dirStats.StringSummary())
+			utils.PrintSeparator(separatorLen)
+			fmt.Print(ColorReset)
+		}
+		//Output Files info for this Directory
+		if outputType == 0 {
+			fmt.Println(sb.String())
+		}
+		if outputType <= 1 {
+			fmt.Println()
+		}
 	}
-	//Output Files info for this Directory
-	if outputType == 0 {
-		fmt.Println(sb.String())
-	}
-	if outputType <= 1 {
-		fmt.Println()
-	}
-	sb.Reset()
-
 }
 
 func ListFiles(
@@ -334,7 +335,8 @@ func ListFiles(
 	ignoreErrors bool,
 	hashMap map[utils.HashPair][]string,
 	reverseHashMap map[string]utils.HashPair,
-	outputType int) error {
+	outputType int,
+	minperc int) error {
 
 	var overallStats counters.Stats
 	var filesInDir []string
@@ -376,6 +378,7 @@ func ListFiles(
 					hashMap,
 					reverseHashMap,
 					outputType,
+					minperc,
 				)
 
 				filesInDir = nil
@@ -403,6 +406,7 @@ func ListFiles(
 			hashMap,
 			reverseHashMap,
 			outputType,
+			minperc,
 		)
 
 	}
