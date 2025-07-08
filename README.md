@@ -98,4 +98,5 @@ duplito -r -i /home/pippo/*.txt
 
 Typical file list example:
 
-![duplito_example](https://github.com/user-attachments/assets/2f750281-6aff-49b9-a5b3-051b70f9af97)
+![image](https://github.com/user-attachments/assets/05f71ffb-a149-4515-bdb3-e557050ab047)
+
