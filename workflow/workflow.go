@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	counters "github.com/ftarlao/duplito/counters"
 	utils "github.com/ftarlao/duplito/utils"
 )
 
@@ -163,7 +164,7 @@ func collectResults(
 		duration := time.Since(startTime).Seconds()
 		if duration > 0 && time.Since(lastUpdate) >= 2*time.Second {
 			currentSpeed := int64(float64(totalBytes) / duration)
-			fmt.Printf("\rCurrent read speed: %s/s\t\t|\t\tnumber of files: %d", utils.RepresentBytes(currentSpeed), numFiles)
+			fmt.Printf("\r[Processed_filesize/sec] Read speed: %s/s\t\t|\t\tnumber of files: %d", utils.RepresentBytes(currentSpeed), numFiles)
 			lastUpdate = time.Now()
 		}
 	}
@@ -173,7 +174,7 @@ func collectResults(
 	if duration > 0 {
 		avgSpeed := int64(float64(totalBytes) / duration)
 		fmt.Println() // Move to a new line after progress updates
-		fmt.Printf("\rCurrent read speed: %s/s\t\t|\t\tnumber of files: %d", utils.RepresentBytes(avgSpeed), numFiles)
+		fmt.Printf("\r[Processed_filesize/sec] Read speed: %s/s\t\t|\t\tnumber of files: %d", utils.RepresentBytes(avgSpeed), numFiles)
 	}
 }
 
@@ -240,8 +241,9 @@ func CalculateFileHashes(paths []string, ignoreErrors bool, recurseFlag bool, th
 func ListFiles(paths []string, recurse bool, ignoreErrors bool, hashMap map[utils.HashPair][]string, reverseHashMap map[string]utils.HashPair) error {
 	TERM_POS := 100
 
+	var sb strings.Builder
 	filesByDir := make(map[string][]string)
-	sizesByPath := make(map[string]int64) // Store sizes for output
+	sizeByFile := make(map[string]int64)
 
 	for _, pathname := range paths {
 		err := filepath.WalkDir(pathname, func(path string, d os.DirEntry, err error) error {
@@ -263,7 +265,7 @@ func ListFiles(paths []string, recurse bool, ignoreErrors bool, hashMap map[util
 			//here we add also files not in DB
 			dir := filepath.Dir(absPath)
 			filesByDir[dir] = append(filesByDir[dir], absPath)
-			sizesByPath[absPath] = size
+			sizeByFile[absPath] = size
 
 			return nil
 		})
@@ -284,51 +286,85 @@ func ListFiles(paths []string, recurse bool, ignoreErrors bool, hashMap map[util
 
 	indent := strings.Repeat(" ", 8) // one tabs (8 spaces) from filename column start
 
+	var overallStats counters.Stats
+	var dirStats counters.Stats
+
 	for i, dir := range dirs {
+		dirStats.Reset()
+
 		if i > 0 {
 			fmt.Println()
 		}
 
-		fmt.Print(ColorLightBlue)
-		utils.PrintSeparator(len(dir))
-		fmt.Printf("FOLDER: %s\n", dir)
-		utils.PrintSeparator(len(dir))
-		fmt.Print(ColorReset)
-
-		filenamespace := utils.Min(utils.MaxFilenameLength(filesByDir[dir]), TERM_POS)
+		//Create all the Dir file information in the StringBuffer
 		files := filesByDir[dir]
+		filenamespace := utils.Min(utils.MaxFilenameLength(files), TERM_POS)
 		sort.Strings(files)
 		for _, path := range files {
 			filename := filepath.Base(path)
-			fmt.Printf("  %-*s", filenamespace, filename)
-			currSize := sizesByPath[path]
-			if currSize == 0 {
-				fmt.Printf(" %sZERO SIZE%s\n", ColorYellow, ColorReset)
+			fmt.Fprintf(&sb, "  %-*s", filenamespace, filename)
+			filesize := sizeByFile[path]
+
+			if filesize == 0 {
+				fmt.Fprintf(&sb, " %sZERO SIZE%s\n", ColorYellow, ColorReset)
+				overallStats.AddIgnoredFile(0)
+				dirStats.AddIgnoredFile(0)
 				continue
 			}
+
 			hash, exists := reverseHashMap[path]
 			if !exists {
-				fmt.Printf(" %sFILE NOT IN DATABASE%s\n", ColorYellow, ColorReset)
+				fmt.Fprintf(&sb, " %sFILE NOT IN DATABASE%s\n", ColorYellow, ColorReset)
+				overallStats.AddIgnoredFile(filesize)
+				dirStats.AddIgnoredFile(filesize)
 				continue
 			}
 
 			if len(hashMap[hash]) == 1 {
-				fmt.Printf(" %sNOT DUPLICATE (%s)%s\n",
+				overallStats.AddUniqueFile(filesize)
+				dirStats.AddUniqueFile(filesize)
+				fmt.Fprintf(&sb, " %sNOT DUPLICATE (%s)%s\n",
 					ColorGreen,
-					utils.RepresentBytes(currSize),
+					utils.RepresentBytes(filesize),
 					ColorReset)
 			} else {
-				fmt.Printf(" %sDUPLICATE OF: (%s)%s\n",
+				overallStats.AddDupFile(filesize)
+				dirStats.AddDupFile(filesize)
+				fmt.Fprintf(&sb, " %sDUPLICATE OF: (%s)%s\n",
 					ColorLightRed,
-					utils.RepresentBytes(currSize),
+					utils.RepresentBytes(filesize),
 					ColorReset)
 				for _, dupPath := range hashMap[hash] {
 					if dupPath != path {
-						fmt.Printf("%s- %s%s%s\n", indent, ColorCyan, dupPath, ColorReset)
+						fmt.Fprintf(&sb, "%s- %s%s%s\n", indent, ColorCyan, dupPath, ColorReset)
 					}
 				}
 			}
 		}
+
+		//Output Directory header
+		fmt.Print(ColorLightBlue)
+		utils.PrintSeparator(len(dir))
+		fmt.Printf("FOLDER: %s\n", dir)
+		fmt.Printf("\tFILES: %d\t\tSIZE: %s\n\tDUPLICATES: %d  [%.1f%%]\tDUP_SIZE: %s [%.1f%%]\n\tIGNORED: %d\t\tIGN_SIZE %s\n",
+			dirStats.NumFiles, utils.RepresentBytes(dirStats.SizeofFiles),
+			dirStats.NumDupFiles, dirStats.DupPerc(), utils.RepresentBytes(dirStats.SizeofDupFiles), dirStats.DupSizePerc(),
+			dirStats.NumIgnoredFiles, utils.RepresentBytes(dirStats.SizeIgnoredFiles))
+		utils.PrintSeparator(len(dir))
+		fmt.Print(ColorReset)
+
+		//Output Files info for this Directory
+		fmt.Println(sb.String())
+		sb.Reset()
 	}
+
+	//Write overall stats
+	utils.PrintSeparator(60)
+	fmt.Println("OVERALL STATS")
+	fmt.Printf("\tFILES: %d\t\tSIZE: %s\n\tDUPLICATES: %d  [%.1f%%]\tDUP_SIZE: %s [%.1f%%]\n\tIGNORED: %d\t\tIGN_SIZE %s\n",
+		overallStats.NumFiles, utils.RepresentBytes(overallStats.SizeofFiles),
+		overallStats.NumDupFiles, overallStats.DupPerc(), utils.RepresentBytes(overallStats.SizeofDupFiles), overallStats.DupSizePerc(),
+		overallStats.NumIgnoredFiles, utils.RepresentBytes(overallStats.SizeIgnoredFiles))
+	utils.PrintSeparator(60)
 	return nil
 }
