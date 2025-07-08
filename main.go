@@ -32,10 +32,9 @@ func customUsage() {
 
 	// Description
 	fmt.Fprintf(os.Stderr, "%s identifies potential duplicates using a **composite MD5 hash**\n", appName)
-	fmt.Fprintf(os.Stderr, "derived from each file's content and size. Hashing info is\n")
-	fmt.Fprintf(os.Stderr, "stored at `~/.duplito/filemap.gob`. The program lists all\n")
-	fmt.Fprintf(os.Stderr, "requested files OR files in a `folder-path`, highlighting\n")
-	fmt.Fprintf(os.Stderr, "duplicates and their respective locations.\n\n")
+	fmt.Fprintf(os.Stderr, "derived from each file's content and size. Hashing info is stored at \n")
+	fmt.Fprintf(os.Stderr, "`~/.duplito/filemap.gob`. The program lists all requested files OR files\n")
+	fmt.Fprintf(os.Stderr, "in a `folder-path`, highlighting duplicates and their respective locations.\n\n")
 
 	// Options
 	fmt.Fprintf(os.Stderr, "Options:\n")
