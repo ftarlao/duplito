@@ -15,21 +15,33 @@ Duplito lists the files in folders (like 'ls' command or like 'find') by highlig
 Please consider with -u the **equality measure an ehuristic**. For the full hash use -U 
 
 ```
-Usage: ./duplito [-r] [-u] [-i] [-t num_threads] <folder-or-file-path1> [folder-or-file-path2 ...]
+Usage: ./duplito [-rUu] [-i] [-t num_threads] [<path1> ...]
 
-`duplito` identifies potential duplicates using a **composite MD5 hash** derived from each file's content
-and its size. This hashing information is stored in a database located at `~/.duplito/filemap.gob`.
-The program lists all the requested files OR the files **in a requested `folder-path`**, explicitly
-highlighting duplicates and indicating their respective duplicate locations.
+./duplito identifies potential duplicates using a **composite MD5 hash**
+derived from each file's content and size. Hashing info is stored at 
+`~/.duplito/filemap.gob`. The program lists all requested files OR files
+in a `folder-path`, highlighting duplicates and their respective locations.
+
 Options:
-  -r, --recurse         Recurse into subdirectories (automatic with -u)
-  -u, --update          Update hash database using the quick-partial hash (implies -r)
-  -U, --UPDATE          Update hash database using the full file hash (implies -r)
-  -i, --ignore-errors   Ignore unreadable/inaccessible files
-  -t, --threads         Number of concurrent hashing threads (default: 3)
+  -r, --recurse         Recurse into subdirectories (auto with -u or -U).
+  -u, --update          Update hash database using quick-partial hash (implies -r).
+                        If no paths, defaults to user home (or / for root).
+  -U, --UPDATE          Update hash database using full file hash (implies -r).
+                        If no paths, defaults to user home (or / for root).
+  -i, --ignore-errors   Ignore unreadable/inaccessible files.
+  -t, --threads         Number of concurrent hashing threads (default: 3).
+
+  -s, --summary         Display only 'per' directory summaries and the final overall
+                        summary, with statistics.
+  -o, --overall         Display only the final overall summary with statistics.
+
+  -m, --minimum         Visualizes summary and file list for folders with a percentage
+                        of duplicates greater than the specified value (default: 0%).
 Behavior:
-  -u -U: Recursively compute and save file hashes.
-  No -u -U: Load hash database and list files with duplicate status.
+  -u or -U: Recursively computes and saves file hashes. Paths are
+            optional, defaulting to user home or /.
+  No -u/-U: Loads hash database and lists files with duplicate status.
+            Paths or filenames are required for this mode.
 ```
 
 Developed by Fabiano Tarlao (2025)
