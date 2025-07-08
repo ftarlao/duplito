@@ -1,5 +1,11 @@
 package counters
 
+import (
+	"fmt"
+
+	"github.com/ftarlao/duplito/utils"
+)
+
 type Stats struct {
 	NumFiles         int64
 	NumDupFiles      int64
@@ -41,4 +47,13 @@ func (s *Stats) DupPerc() float32 {
 //Percentage of Duplicates filesize
 func (s *Stats) DupSizePerc() float32 {
 	return 100.0 * float32(s.SizeofDupFiles) / float32(s.SizeofFiles)
+}
+
+//Percentage of Duplicates filesize
+func (s *Stats) StringSummary() string {
+	text := fmt.Sprintf("\tFILES: %d\t\tSIZE: %s\n\tDUPLICATES: %d  [%.1f%%]\tDUP_SIZE: %s [%.1f%%]\n\tIGNORED: %d\t\tIGN_SIZE %s\n",
+		s.NumFiles, utils.RepresentBytes(s.SizeofFiles),
+		s.NumDupFiles, s.DupPerc(), utils.RepresentBytes(s.SizeofDupFiles), s.DupSizePerc(),
+		s.NumIgnoredFiles, utils.RepresentBytes(s.SizeIgnoredFiles))
+	return text
 }

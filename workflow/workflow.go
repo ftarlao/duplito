@@ -344,13 +344,11 @@ func ListFiles(paths []string, recurse bool, ignoreErrors bool, hashMap map[util
 
 		//Output Directory header
 		fmt.Print(ColorLightBlue)
-		utils.PrintSeparator(len(dir))
+		separatorLen := utils.Min(len(dir)*2, 70)
+		utils.PrintSeparator(separatorLen)
 		fmt.Printf("FOLDER: %s\n", dir)
-		fmt.Printf("\tFILES: %d\t\tSIZE: %s\n\tDUPLICATES: %d  [%.1f%%]\tDUP_SIZE: %s [%.1f%%]\n\tIGNORED: %d\t\tIGN_SIZE %s\n",
-			dirStats.NumFiles, utils.RepresentBytes(dirStats.SizeofFiles),
-			dirStats.NumDupFiles, dirStats.DupPerc(), utils.RepresentBytes(dirStats.SizeofDupFiles), dirStats.DupSizePerc(),
-			dirStats.NumIgnoredFiles, utils.RepresentBytes(dirStats.SizeIgnoredFiles))
-		utils.PrintSeparator(len(dir))
+		fmt.Print(dirStats.StringSummary())
+		utils.PrintSeparator(separatorLen)
 		fmt.Print(ColorReset)
 
 		//Output Files info for this Directory
@@ -359,12 +357,9 @@ func ListFiles(paths []string, recurse bool, ignoreErrors bool, hashMap map[util
 	}
 
 	//Write overall stats
-	utils.PrintSeparator(60)
+	utils.PrintSeparator(50)
 	fmt.Println("OVERALL STATS")
-	fmt.Printf("\tFILES: %d\t\tSIZE: %s\n\tDUPLICATES: %d  [%.1f%%]\tDUP_SIZE: %s [%.1f%%]\n\tIGNORED: %d\t\tIGN_SIZE %s\n",
-		overallStats.NumFiles, utils.RepresentBytes(overallStats.SizeofFiles),
-		overallStats.NumDupFiles, overallStats.DupPerc(), utils.RepresentBytes(overallStats.SizeofDupFiles), overallStats.DupSizePerc(),
-		overallStats.NumIgnoredFiles, utils.RepresentBytes(overallStats.SizeIgnoredFiles))
-	utils.PrintSeparator(60)
+	fmt.Print(overallStats.StringSummary())
+	utils.PrintSeparator(50)
 	return nil
 }
