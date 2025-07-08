@@ -16,6 +16,10 @@ var (
 	updateFullFlag   bool
 	ignoreErrorsFlag bool
 	numThreads       int // New flag for number of threads
+	warnings         bool
+	summary          bool
+	overall          bool
+	outputType       int //0 ALL, 1 SUMMARY, 2 ONLY FINAL SUMMARY
 )
 
 // customUsage defines the help text for the program.
@@ -67,11 +71,24 @@ func init() {
 	flag.IntVar(&numThreads, "threads", 3, "") // Changed default to 3 threads
 	flag.BoolVar(&updateFullFlag, "U", false, "")
 	flag.BoolVar(&updateFullFlag, "UPDATE", false, "")
+	flag.BoolVar(&summary, "s", false, "")
+	flag.BoolVar(&summary, "summary", false, "") //only folder summary and final summary
+	flag.BoolVar(&overall, "o", false, "")       //only final summary
+	flag.BoolVar(&overall, "overall", false, "")
 }
 
 func main() {
 
 	flag.Parse()
+
+	switch { // No expression here, defaults to 'switch true'
+	case overall:
+		outputType = 2
+	case summary:
+		outputType = 1
+	default:
+		outputType = 0
+	}
 
 	paths := flag.Args() // Collect all non-flag arguments as paths
 
@@ -102,7 +119,13 @@ func main() {
 	if updateFlag || updateFullFlag {
 		recurseFlag = true // -u implies -r
 		var err error
-		filesHashMap, err = workflow.CalculateFileHashes(paths, ignoreErrorsFlag, recurseFlag, numThreads, updateFullFlag)
+		filesHashMap, err = workflow.CalculateFileHashes(
+			paths,
+			ignoreErrorsFlag,
+			recurseFlag,
+			numThreads,
+			updateFullFlag,
+		)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error calculating hashes: %v\n", err)
 			os.Exit(1)
@@ -123,7 +146,13 @@ func main() {
 		fmt.Println("Loaded configuration:")
 		fmt.Printf("Number of different files in database: %d\n", len(filesHashMap))
 		reversefilesHashMap := config.InvertMap(filesHashMap)
-		if err = workflow.ListFiles(paths, recurseFlag, ignoreErrorsFlag, filesHashMap, reversefilesHashMap); err != nil {
+		if err = workflow.ListFiles(
+			paths,
+			recurseFlag,
+			ignoreErrorsFlag,
+			filesHashMap,
+			reversefilesHashMap,
+			outputType); err != nil {
 			fmt.Fprintf(os.Stderr, "Error listing files: %v\n", err)
 			os.Exit(1)
 		}

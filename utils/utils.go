@@ -5,23 +5,27 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/user"
 	"path/filepath"
+	"sort"
 	"strings"
 	// Import the term package
 )
 
-func Int64ToBytes(n int64) []byte {
-	bytes := make([]byte, 8)
-	for i := 0; i < 8; i++ {
-		bytes[7-i] = byte(n >> (i * 8))
-	}
-	return bytes
-}
+// func Int64ToBytes(n int64) []byte {
+// 	bytes := make([]byte, 8)
+// 	for i := 0; i < 8; i++ {
+// 		bytes[7-i] = byte(n >> (i * 8))
+// 	}
+// 	return bytes
+// }
 
 func RepresentBytes(numbytes int64) string {
 	switch {
+	case numbytes >= 1048576*1024:
+		return fmt.Sprintf("%d GB", numbytes/(1048576*1024))
 	case numbytes >= 1048576:
 		return fmt.Sprintf("%d MB", numbytes/1048576)
 	case numbytes >= 1024:
@@ -136,7 +140,6 @@ func CheckFile(path string, d os.DirEntry, err error, recurse bool, rootPath str
 		return "", 0, nil
 	}
 	if !fileInfo.Mode().IsRegular() {
-
 		return "", 0, fmt.Errorf("%s is not a regular file", path)
 	}
 	absPath, err := filepath.Abs(path)
@@ -179,4 +182,81 @@ func UserPathInfo() (string, error) {
 		fmt.Fprintf(os.Stderr, "No path specified with -u/-U. Defaulting to user home directory (%s).\n", currentUser.HomeDir)
 		return currentUser.HomeDir, nil // Default to user's home directory
 	}
+}
+
+// HybridWalkFunc is the callback function for our custom hybrid walker
+type HybridWalkFunc func(path string, d fs.DirEntry, err error) error
+
+// HybridWalk performs a traversal that processes files in a directory first,
+// then recurses into its subdirectories.
+// AI generated it is better to double check LATER
+func HybridWalk(root string, fn HybridWalkFunc) error {
+	// This is our recursive helper function
+	var walk func(string) error
+	walk = func(currentPath string) error {
+		// 1. Get information about the current path itself (root, or a subdir we just jumped into)
+		info, err := os.Lstat(currentPath)
+		if err != nil {
+			return fn(currentPath, nil, err) // Report error to callback
+		}
+		currentEntry := fs.FileInfoToDirEntry(info)
+
+		// Call the user's callback for the current directory itself (optional, but often useful)
+		// You might skip this if you only care about files/subdirs *within* the root.
+		// If you want to skip the root directory's self-reporting, add:
+		// if currentPath != root { fn(currentPath, currentEntry, nil) }
+		if err := fn(currentPath, currentEntry, nil); err != nil {
+			if err == fs.SkipDir && currentEntry.IsDir() {
+				return nil // Skip this directory's contents if explicitly requested
+			}
+			return err
+		}
+
+		if !currentEntry.IsDir() {
+			return nil // Not a directory, no sub-items to process
+		}
+
+		// 2. Read all entries (files and subdirectories) in the current directory
+		entries, err := os.ReadDir(currentPath)
+		if err != nil {
+			return fn(currentPath, currentEntry, err) // Report error if directory can't be read
+		}
+
+		// (Optional) Sort entries lexically for predictable output within a directory
+		sort.Slice(entries, func(i, j int) bool {
+			return entries[i].Name() < entries[j].Name()
+		})
+
+		var subdirs []fs.DirEntry // To store subdirectories for later recursion
+
+		// 3. Process all files in the current directory FIRST
+		for _, e := range entries {
+			if !e.IsDir() {
+				filePath := filepath.Join(currentPath, e.Name())
+				if err := fn(filePath, e, nil); err != nil {
+					return err // Stop on error
+				}
+			} else {
+				subdirs = append(subdirs, e) // Collect subdirectories
+			}
+		}
+
+		// 4. Then, recurse into each subdirectory
+		for _, subDir := range subdirs {
+			subDirPath := filepath.Join(currentPath, subDir.Name())
+			if err := walk(subDirPath); err != nil {
+				if err == fs.SkipDir { // If the recursive call returned SkipDir, it means that subdir was skipped
+					// This specific SkipDir handling might need refinement based on exact desired behavior
+					// If the user's fn returns SkipDir for a *directory*, the whole subdir is skipped.
+					// If it returns SkipDir for a *file*, that's not typical and usually just stops.
+					continue // Move to the next sibling subdirectory
+				}
+				return err // Propagate other errors
+			}
+		}
+
+		return nil
+	}
+
+	return walk(root)
 }

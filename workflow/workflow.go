@@ -183,7 +183,12 @@ func collectResults(
 // If ignoreErrors is true, skips unreadable/inaccessible files, logs them to stderr, and continues.
 // If ignoreErrors is false, returns an error on the first failure.
 // Displays current read speed in-place and final average read speed.
-func CalculateFileHashes(paths []string, ignoreErrors bool, recurseFlag bool, threads int, fullHash bool) (map[utils.HashPair][]string, error) {
+func CalculateFileHashes(
+	paths []string,
+	ignoreErrors bool,
+	recurseFlag bool,
+	threads int,
+	fullHash bool) (map[utils.HashPair][]string, error) {
 	// This gives us a 'ctx' to pass to goroutines and a 'cancel' function
 	// to call when we want to stop them.
 	ctx, cancel := context.WithCancel(context.Background())
@@ -238,15 +243,108 @@ func CalculateFileHashes(paths []string, ignoreErrors bool, recurseFlag bool, th
 	return hashMap, nil
 }
 
-func ListFiles(paths []string, recurse bool, ignoreErrors bool, hashMap map[utils.HashPair][]string, reverseHashMap map[string]utils.HashPair) error {
-	TERM_POS := 100
+const TERM_POS int = 100
 
+var indent string = strings.Repeat(" ", 8) // one tabs (8 spaces) from filename column start
+
+func processSingleFolder(
+	filesList []string,
+	dir string,
+	sizeByFile map[string]int64,
+	overallStats *counters.Stats,
+	hashMap map[utils.HashPair][]string,
+	reverseHashMap map[string]utils.HashPair,
+	outputType int,
+) {
 	var sb strings.Builder
-	filesByDir := make(map[string][]string)
+	var dirStats counters.Stats
+
+	filenamespace := utils.Min(utils.MaxFilenameLength(filesList), TERM_POS)
+	sort.Strings(filesList)
+	for _, path := range filesList {
+		filename := filepath.Base(path)
+		fmt.Fprintf(&sb, "  %-*s", filenamespace, filename)
+		filesize := sizeByFile[path]
+
+		if filesize == 0 {
+			fmt.Fprintf(&sb, " %sZERO SIZE%s\n", ColorYellow, ColorReset)
+			overallStats.AddIgnoredFile(0)
+			dirStats.AddIgnoredFile(0)
+			continue
+		}
+
+		hash, exists := reverseHashMap[path]
+		if !exists {
+			fmt.Fprintf(&sb, " %sFILE NOT IN DATABASE%s\n", ColorYellow, ColorReset)
+			overallStats.AddIgnoredFile(filesize)
+			dirStats.AddIgnoredFile(filesize)
+			continue
+		}
+
+		if len(hashMap[hash]) == 1 {
+			overallStats.AddUniqueFile(filesize)
+			dirStats.AddUniqueFile(filesize)
+
+			fmt.Fprintf(&sb, " %sNOT DUPLICATE (%s)%s\n",
+				ColorGreen,
+				utils.RepresentBytes(filesize),
+				ColorReset)
+
+		} else {
+			overallStats.AddDupFile(filesize)
+			dirStats.AddDupFile(filesize)
+
+			fmt.Fprintf(&sb, " %sDUPLICATE OF: (%s)%s\n",
+				ColorLightRed,
+				utils.RepresentBytes(filesize),
+				ColorReset)
+			for _, dupPath := range hashMap[hash] {
+				if dupPath != path {
+					fmt.Fprintf(&sb, "%s- %s%s%s\n", indent, ColorCyan, dupPath, ColorReset)
+				}
+			}
+
+		}
+	}
+
+	//Output Directory header
+	if outputType <= 1 {
+		fmt.Print(ColorLightBlue)
+		separatorLen := utils.Min(len(dir)*2, 70)
+		utils.PrintSeparator(separatorLen)
+		fmt.Printf("FOLDER: %s\n", dir)
+		fmt.Print(dirStats.StringSummary())
+		utils.PrintSeparator(separatorLen)
+		fmt.Print(ColorReset)
+	}
+	//Output Files info for this Directory
+	if outputType == 0 {
+		fmt.Println(sb.String())
+	}
+	if outputType <= 1 {
+		fmt.Println()
+	}
+	sb.Reset()
+
+}
+
+func ListFiles(
+	paths []string,
+	recurse bool,
+	ignoreErrors bool,
+	hashMap map[utils.HashPair][]string,
+	reverseHashMap map[string]utils.HashPair,
+	outputType int) error {
+
+	var overallStats counters.Stats
+	var filesInDir []string
+	var dir, currPath string
+	//filesByDir := make(map[string][]string)
 	sizeByFile := make(map[string]int64)
 
 	for _, pathname := range paths {
-		err := filepath.WalkDir(pathname, func(path string, d os.DirEntry, err error) error {
+		currPath = ""
+		err := utils.HybridWalk(pathname, func(path string, d os.DirEntry, err error) error {
 			absPath, size, err := utils.CheckFile(path, d, err, recurse, pathname)
 			if err != nil && err != filepath.SkipDir {
 				fmt.Fprintf(os.Stderr, "Error while accessing file %s details: %v\n", path, err)
@@ -262,9 +360,30 @@ func ListFiles(paths []string, recurse bool, ignoreErrors bool, hashMap map[util
 				return nil
 			}
 
-			//here we add also files not in DB
 			dir := filepath.Dir(absPath)
-			filesByDir[dir] = append(filesByDir[dir], absPath)
+			if currPath == "" {
+				currPath = dir
+			}
+
+			if currPath != dir {
+				//we are in another folder let's process previous one
+
+				processSingleFolder(
+					filesInDir,
+					dir,
+					sizeByFile,
+					&overallStats,
+					hashMap,
+					reverseHashMap,
+					outputType,
+				)
+
+				filesInDir = nil
+				sizeByFile = make(map[string]int64)
+				currPath = dir
+			}
+
+			filesInDir = append(filesInDir, absPath)
 			sizeByFile[absPath] = size
 
 			return nil
@@ -276,84 +395,16 @@ func ListFiles(paths []string, recurse bool, ignoreErrors bool, hashMap map[util
 				return err
 			}
 		}
-	}
+		processSingleFolder(
+			filesInDir,
+			dir,
+			sizeByFile,
+			&overallStats,
+			hashMap,
+			reverseHashMap,
+			outputType,
+		)
 
-	var dirs []string
-	for dir := range filesByDir {
-		dirs = append(dirs, dir)
-	}
-	sort.Strings(dirs)
-
-	indent := strings.Repeat(" ", 8) // one tabs (8 spaces) from filename column start
-
-	var overallStats counters.Stats
-	var dirStats counters.Stats
-
-	for i, dir := range dirs {
-		dirStats.Reset()
-
-		if i > 0 {
-			fmt.Println()
-		}
-
-		//Create all the Dir file information in the StringBuffer
-		files := filesByDir[dir]
-		filenamespace := utils.Min(utils.MaxFilenameLength(files), TERM_POS)
-		sort.Strings(files)
-		for _, path := range files {
-			filename := filepath.Base(path)
-			fmt.Fprintf(&sb, "  %-*s", filenamespace, filename)
-			filesize := sizeByFile[path]
-
-			if filesize == 0 {
-				fmt.Fprintf(&sb, " %sZERO SIZE%s\n", ColorYellow, ColorReset)
-				overallStats.AddIgnoredFile(0)
-				dirStats.AddIgnoredFile(0)
-				continue
-			}
-
-			hash, exists := reverseHashMap[path]
-			if !exists {
-				fmt.Fprintf(&sb, " %sFILE NOT IN DATABASE%s\n", ColorYellow, ColorReset)
-				overallStats.AddIgnoredFile(filesize)
-				dirStats.AddIgnoredFile(filesize)
-				continue
-			}
-
-			if len(hashMap[hash]) == 1 {
-				overallStats.AddUniqueFile(filesize)
-				dirStats.AddUniqueFile(filesize)
-				fmt.Fprintf(&sb, " %sNOT DUPLICATE (%s)%s\n",
-					ColorGreen,
-					utils.RepresentBytes(filesize),
-					ColorReset)
-			} else {
-				overallStats.AddDupFile(filesize)
-				dirStats.AddDupFile(filesize)
-				fmt.Fprintf(&sb, " %sDUPLICATE OF: (%s)%s\n",
-					ColorLightRed,
-					utils.RepresentBytes(filesize),
-					ColorReset)
-				for _, dupPath := range hashMap[hash] {
-					if dupPath != path {
-						fmt.Fprintf(&sb, "%s- %s%s%s\n", indent, ColorCyan, dupPath, ColorReset)
-					}
-				}
-			}
-		}
-
-		//Output Directory header
-		fmt.Print(ColorLightBlue)
-		separatorLen := utils.Min(len(dir)*2, 70)
-		utils.PrintSeparator(separatorLen)
-		fmt.Printf("FOLDER: %s\n", dir)
-		fmt.Print(dirStats.StringSummary())
-		utils.PrintSeparator(separatorLen)
-		fmt.Print(ColorReset)
-
-		//Output Files info for this Directory
-		fmt.Println(sb.String())
-		sb.Reset()
 	}
 
 	//Write overall stats
