@@ -45,6 +45,9 @@ func customUsage() {
 	fmt.Fprintf(os.Stderr, "                        If no paths, defaults to user home (or / for root).\n")
 	fmt.Fprintf(os.Stderr, "  -i, --ignore-errors   Ignore unreadable/inaccessible files.\n")
 	fmt.Fprintf(os.Stderr, "  -t, --threads         Number of concurrent hashing threads (default: 3).\n\n")
+	fmt.Fprintf(os.Stderr, "  -s, --summary         Display only directory summaries and the final overall summary,\n")
+	fmt.Fprintf(os.Stderr, "                        with statistics.\n")
+	fmt.Fprintf(os.Stderr, "  -o, --overall         Display only the final overall summary with statistics.\n\n")
 
 	// Behavior Notes
 	fmt.Fprintf(os.Stderr, "Behavior:\n")
