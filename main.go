@@ -20,6 +20,7 @@ var (
 	summary          bool
 	overall          bool
 	minperc          int
+	minbytes         int64
 	outputType       int //0 ALL, 1 SUMMARY, 2 ONLY FINAL SUMMARY
 )
 
@@ -48,8 +49,10 @@ func customUsage() {
 	fmt.Fprintf(os.Stderr, "  -s, --summary         Display only 'per' directory summaries and the final overall\n")
 	fmt.Fprintf(os.Stderr, "                        summary, with statistics.\n")
 	fmt.Fprintf(os.Stderr, "  -o, --overall         Display only the final overall summary with statistics.\n\n")
-	fmt.Fprintf(os.Stderr, "  -m, --minimum         Visualizes summary and file list for folders with a percentage\n")
+	fmt.Fprintf(os.Stderr, "  -m, --minperc         Visualizes summary and file list for folders with a percentage\n")
 	fmt.Fprintf(os.Stderr, "                        of duplicates greater than the specified value (default: 0%%).\n")
+	fmt.Fprintf(os.Stderr, "  -m, --minbytes        Visualizes summary and file list for folders with a file size\n")
+	fmt.Fprintf(os.Stderr, "                        of duplicates that exceeds the provided value (default: 0 byte).\n")
 
 	// Behavior Notes
 	fmt.Fprintf(os.Stderr, "Behavior:\n")
@@ -81,7 +84,9 @@ func init() {
 	flag.BoolVar(&overall, "o", false, "")       //only final summary
 	flag.BoolVar(&overall, "overall", false, "")
 	flag.IntVar(&minperc, "m", 0, "")
-	flag.IntVar(&minperc, "minimum", 0, "")
+	flag.IntVar(&minperc, "minperc", 0, "")
+	flag.Int64Var(&minbytes, "b", 0, "")
+	flag.Int64Var(&minbytes, "minbytes", 0, "")
 }
 
 func main() {
@@ -141,7 +146,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error saving config: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Println("\nConfiguration updated successfully")
+		fmt.Println("File database updated successfully")
 		fmt.Printf("Number of different files in database: %d\n", len(filesHashMap))
 	} else {
 		var err error
@@ -150,8 +155,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Println("Loaded configuration:")
-		fmt.Printf("Number of different files in database: %d\n", len(filesHashMap))
+		fmt.Printf("File database loaded, Number of different files in database: %d\n", len(filesHashMap))
 		reversefilesHashMap := config.InvertMap(filesHashMap)
 		if err = workflow.ListFiles(
 			paths,
@@ -160,7 +164,8 @@ func main() {
 			filesHashMap,
 			reversefilesHashMap,
 			outputType,
-			minperc); err != nil {
+			minperc,
+			minbytes); err != nil {
 			fmt.Fprintf(os.Stderr, "Error listing files: %v\n", err)
 			os.Exit(1)
 		}

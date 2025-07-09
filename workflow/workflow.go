@@ -243,8 +243,8 @@ func CalculateFileHashes(
 	return hashMap, nil
 }
 
-const TERM_POS int = 100
-
+const TERM_POS int = 100                   //limits the positioning of file status in output
+const SEP_WIDTH int = 70                   //width of  ---  separator
 var indent string = strings.Repeat(" ", 8) // one tabs (8 spaces) from filename column start
 
 func processSingleFolder(
@@ -256,6 +256,7 @@ func processSingleFolder(
 	reverseHashMap map[string]utils.HashPair,
 	outputType int,
 	minperc int,
+	minbytes int64,
 ) {
 	var sb strings.Builder
 	var dirStats counters.Stats
@@ -308,15 +309,15 @@ func processSingleFolder(
 		}
 	}
 
-	if minperc <= utils.Max(int(dirStats.DupPerc()), int(dirStats.DupSizePerc())) {
+	if minperc <= utils.Max(int(dirStats.DupPerc()), int(dirStats.DupSizePerc())) &&
+		minbytes <= dirStats.SizeofDupFiles {
 		//Output Directory header
 		if outputType <= 1 {
 			fmt.Print(ColorLightBlue)
-			separatorLen := utils.Min(len(dir)*2, 70)
-			utils.PrintSeparator(separatorLen)
+			utils.PrintSeparator(SEP_WIDTH)
 			fmt.Printf("FOLDER: %s\n", dir)
 			fmt.Print(dirStats.StringSummary())
-			utils.PrintSeparator(separatorLen)
+			utils.PrintSeparator(SEP_WIDTH)
 			fmt.Print(ColorReset)
 		}
 		//Output Files info for this Directory
@@ -336,7 +337,8 @@ func ListFiles(
 	hashMap map[utils.HashPair][]string,
 	reverseHashMap map[string]utils.HashPair,
 	outputType int,
-	minperc int) error {
+	minperc int,
+	minbytes int64) error {
 
 	var overallStats counters.Stats
 	var filesInDir []string
@@ -380,6 +382,7 @@ func ListFiles(
 					reverseHashMap,
 					outputType,
 					minperc,
+					minbytes,
 				)
 
 				filesInDir = nil
@@ -410,14 +413,15 @@ func ListFiles(
 			reverseHashMap,
 			outputType,
 			minperc,
+			minbytes,
 		)
 
 	}
 
 	//Write overall stats
-	utils.PrintSeparator(50)
+	utils.PrintSeparator(SEP_WIDTH)
 	fmt.Println("OVERALL STATS")
 	fmt.Print(overallStats.StringSummary())
-	utils.PrintSeparator(50)
+	utils.PrintSeparator(SEP_WIDTH)
 	return nil
 }

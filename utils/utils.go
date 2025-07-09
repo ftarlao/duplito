@@ -25,11 +25,11 @@ import (
 func RepresentBytes(numbytes int64) string {
 	switch {
 	case numbytes >= 1048576*1024:
-		return fmt.Sprintf("%d GB", numbytes/(1048576*1024))
+		return fmt.Sprintf("%.1f GB", float32(numbytes)/(1048576*1024))
 	case numbytes >= 1048576:
-		return fmt.Sprintf("%d MB", numbytes/1048576)
+		return fmt.Sprintf("%.1f MB", float32(numbytes)/1048576)
 	case numbytes >= 1024:
-		return fmt.Sprintf("%d KB", numbytes/1024)
+		return fmt.Sprintf("%.1f KB", float32(numbytes)/1024)
 	default:
 		return fmt.Sprintf("%d Byte", numbytes)
 	}
