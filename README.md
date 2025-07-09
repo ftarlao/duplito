@@ -22,7 +22,7 @@ derived from each file's content and size. Hashing info is stored at
 `~/.duplito/filemap.gob`. The program lists all requested files OR files
 in a `folder-path`, highlighting duplicates and their respective locations.
 
-Options:
+When listing files <path1> defaults to current folder "."Options:
   -r, --recurse         Recurse into subdirectories (auto with -u or -U).
   -u, --update          Update hash database using quick-partial hash (implies -r).
                         If no paths, defaults to user home (or / for root).
@@ -35,8 +35,10 @@ Options:
                         summary, with statistics.
   -o, --overall         Display only the final overall summary with statistics.
 
-  -m, --minimum         Visualizes summary and file list for folders with a percentage
+  -m, --minperc         Visualizes summary and file list for folders with a percentage
                         of duplicates greater than the specified value (default: 0%).
+  -m, --minbytes        Visualizes summary and file list for folders with a file size
+                        of duplicates that exceeds the provided value (default: 0 byte).
 Behavior:
   -u or -U: Recursively computes and saves file hashes. Paths are
             optional, defaulting to user home or /.
@@ -96,7 +98,31 @@ You can also use the **shell expansion** to check for files with specific name p
 duplito -r -i /home/pippo/*.txt 
 ```
 
+You can omit the path information, 'duplito' lists files in the current folder 
+```Bash
+duplito   
+```
+
+the same as ```duplito .```
+
+You can also choose to visualize only the statistic summaries, for each folder and subfolder 
+and the overall summary (of all listed files). With these options the  file list are not
+visualized, only summaries!
+
+```Bash
+duplito -r -s -i /home/pippo
+```
+In details, for each folder he visualize the summary only, and recurse into subdirs, also 
+ignores errors (e.g. i/o errors, and so on) and keeps working on the other files.
+![image](https://github.com/user-attachments/assets/01d39320-f0f6-4bcb-803c-903ea0bf92ce)
+
+```Bash
+duplito -r -o -i /home/pippo
+```
+Only the final 'statistics' summary for ALL files included in provided paths and folder (-r implies 
+subfolders)
+![image](https://github.com/user-attachments/assets/c4632b5b-e676-4943-909d-89794cac83ff)
+
 Typical file list example:
 
-![image](https://github.com/user-attachments/assets/05f71ffb-a149-4515-bdb3-e557050ab047)
-
+![image](https://github.com/user-attachments/assets/b551921f-f040-4599-a9b5-80b3fb2811e9)
