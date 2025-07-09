@@ -37,7 +37,7 @@ When listing files <path1> defaults to current folder "."Options:
 
   -m, --minperc         Visualizes summary and file list for folders with a percentage
                         of duplicates greater than the specified value (default: 0%).
-  -m, --minbytes        Visualizes summary and file list for folders with a file size
+  -b, --minbytes        Visualizes summary and file list for folders with a file size
                         of duplicates that exceeds the provided value (default: 0 byte).
 Behavior:
   -u or -U: Recursively computes and saves file hashes. Paths are
