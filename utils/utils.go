@@ -144,7 +144,7 @@ func CheckFile(path string, d os.DirEntry, err error, recurse bool, rootPath str
 		return "", 0, fmt.Errorf("failed to get info for %s: %v", path, err)
 	}
 	if fileInfo.Mode()&os.ModeSymlink != 0 {
-		fmt.Fprintf(os.Stderr, "\nSkipping symbolic link %s\n", path)
+		//fmt.Fprintf(os.Stderr, "\nSkipping symbolic link %s\n", path)
 		return "", 0, nil
 	}
 	if !fileInfo.Mode().IsRegular() {

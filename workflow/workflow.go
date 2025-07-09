@@ -364,6 +364,7 @@ func ListFiles(
 
 			dir := filepath.Dir(absPath)
 			if currPath == "" {
+				//first time, let's use the first folder
 				currPath = dir
 			}
 
@@ -398,6 +399,8 @@ func ListFiles(
 				return err
 			}
 		}
+
+		//The last folder ends without triggering the process, here we have to do:
 		processSingleFolder(
 			filesInDir,
 			dir,
