@@ -36,7 +36,7 @@ func customUsage() {
 	fmt.Fprintf(os.Stderr, "derived from each file's content and size. Hashing info is stored at \n")
 	fmt.Fprintf(os.Stderr, "`~/.duplito/filemap.gob`. The program lists all requested files OR files\n")
 	fmt.Fprintf(os.Stderr, "in a `folder-path`, highlighting duplicates and their respective locations.\n\n")
-
+	fmt.Fprintf(os.Stderr, "When listing files <path1> defaults to current folder \".\"")
 	// Options
 	fmt.Fprintf(os.Stderr, "Options:\n")
 	fmt.Fprintf(os.Stderr, "  -r, --recurse         Recurse into subdirectories (auto with -u or -U).\n")
@@ -113,8 +113,8 @@ func main() {
 			}
 			paths = append(paths, userPath)
 		} else {
-			flag.Usage()
-			os.Exit(1)
+			//file list mode, defaults to current folder
+			paths = append(paths, ".")
 		}
 	}
 

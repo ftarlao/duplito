@@ -261,7 +261,7 @@ func processSingleFolder(
 	var sb strings.Builder
 	var dirStats counters.Stats
 
-	filenamespace := utils.Min(utils.MaxFilenameLength(filesList), TERM_POS)
+	filenamespace := utils.Min(utils.MaxFilenameLength(filesList)+8, TERM_POS)
 	sort.Strings(filesList)
 	for _, path := range filesList {
 		filename := filepath.Base(path)
