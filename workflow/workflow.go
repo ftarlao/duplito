@@ -383,7 +383,7 @@ func ListFiles(
 
 	var overallStats counters.Stats
 	var filesInDir []string
-	var dir, currPath string
+	var currPath string
 	//filesByDir := make(map[string][]string)
 	sizeByFile := make(map[string]int64)
 
@@ -416,7 +416,7 @@ func ListFiles(
 
 				processSingleFolder(
 					filesInDir,
-					dir,
+					currPath,
 					sizeByFile,
 					&overallStats,
 					hashMap,
@@ -447,7 +447,7 @@ func ListFiles(
 		//The last folder ends without triggering the process, here we have to do:
 		processSingleFolder(
 			filesInDir,
-			dir,
+			currPath,
 			sizeByFile,
 			&overallStats,
 			hashMap,
