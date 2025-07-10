@@ -35,6 +35,8 @@ type fileTask struct {
 	Path     string
 	AbsPath  string
 	Filesize int64
+	RealHash bool
+	IsUpdate bool
 }
 
 // fileResult represents the result of processing a file.
@@ -42,6 +44,7 @@ type fileResult struct {
 	Path       string
 	HashPairID utils.HashPair //contains also filesize
 	Err        error
+	IsUpdate   bool
 }
 
 // findFiles walks the directory and sends file tasks to a channel.
@@ -54,8 +57,10 @@ func findFiles(
 ) {
 	defer wg.Done()
 
+	sizeToFileTask := make(map[int64]fileTask) //record the first filetask for a filesize value
+
 	for _, pathname := range paths {
-		err := filepath.WalkDir(pathname, func(path string, d os.DirEntry, err error) error {
+		err := utils.HybridWalk(pathname, func(path string, d os.DirEntry, err error) error {
 			select {
 			case <-ctx.Done():
 				// The context has been cancelled. Time to stop.
@@ -76,7 +81,22 @@ func findFiles(
 			if absPath == "" { // Skipped by checkFile (e.g., directory, symlink, non-regular, or ignored error)
 				return nil
 			}
-			tasks <- fileTask{Path: path, AbsPath: absPath, Filesize: filesize}
+
+			ft := fileTask{Path: path, AbsPath: absPath, Filesize: filesize, RealHash: false, IsUpdate: false}
+			if oldTask, ok := sizeToFileTask[filesize]; ok {
+				//Other file with same size
+				ft.RealHash = true
+				if !oldTask.RealHash {
+					//we have not processed the first, let's do it, it's like a delayed processing
+					oldTask.RealHash = true
+					oldTask.IsUpdate = true
+					sizeToFileTask[filesize] = oldTask //update the status for this size
+					tasks <- oldTask                   //sends also the previous task (recalcluate hash)
+				}
+			} else {
+				sizeToFileTask[filesize] = ft
+			}
+			tasks <- ft
 			return nil
 		})
 		if err != nil {
@@ -86,6 +106,7 @@ func findFiles(
 			}
 		}
 	}
+	//fmt.Printf("\nUnique sizes: %d\n", len(sizeToFileTask))  //INSPECTION CODE
 	close(tasks) // Important: close the channel when all tasks are sent
 }
 
@@ -114,27 +135,38 @@ func fileWorker(
 		}
 		var hashSum string
 
-		if !fullHash {
-			hashSum, err = utils.MD5QuickHash(file, 2*1024*1024, task.Filesize)
-		} else {
-			hashSum, err = utils.MD5hash(file)
+		switch {
+		case !task.RealHash:
+			{
+				hashSum = ""
+			}
+		case !fullHash:
+			{
+				hashSum, err = utils.QuickHashGen(file, 2*1024*1024, task.Filesize)
+			}
+		default:
+			{
+				//remains only the full hash
+				hashSum, err = utils.HashGen(file)
+			}
 		}
+
 		hashPair := utils.HashPair{
-			Hash:     hashSum,
 			Filesize: task.Filesize,
+			Hash:     hashSum,
 		}
 		file.Close() // Close the file immediately after hashing
 
 		if err != nil {
 			//fmt.Fprintf(os.Stderr, "Worker %d: Error hashing %s: %v\n", id, task.Path, err)
-			results <- fileResult{Path: task.AbsPath, Err: fmt.Errorf("Worker %d, failed to hash %s: %w", id, task.Path, err)}
+			results <- fileResult{Path: task.AbsPath, Err: fmt.Errorf("Worker %d, failed to hash %s: %w", id, task.Path, err), IsUpdate: task.IsUpdate}
 			if ignoreErrors {
 				continue
 			} else {
 				return
 			}
 		}
-		results <- fileResult{Path: task.AbsPath, HashPairID: hashPair, Err: nil}
+		results <- fileResult{Path: task.AbsPath, HashPairID: hashPair, Err: nil, IsUpdate: task.IsUpdate}
 	}
 }
 
@@ -157,14 +189,24 @@ func collectResults(
 			continue
 		}
 		hashMap[res.HashPairID] = append(hashMap[res.HashPairID], res.Path)
-		totalBytes += res.HashPairID.Filesize
-		numFiles++
+		if !res.IsUpdate {
+			totalBytes += res.HashPairID.Filesize
+			numFiles++
+		} else {
+			//remove the older fake HashID that has an empty Hash part "" ; this one was useful
+			//ONLY when ONE file has this filesize (no computation performed)
+			oldPair := utils.HashPair{
+				Filesize: res.HashPairID.Filesize,
+				Hash:     "",
+			}
+			delete(hashMap, oldPair)
+		}
 
 		// Update progress display
 		duration := time.Since(startTime).Seconds()
 		if duration > 0 && time.Since(lastUpdate) >= 2*time.Second {
 			currentSpeed := int64(float64(totalBytes) / duration)
-			fmt.Printf("\r[Processed_filesize/sec] Read speed: %s/s\t\t|\t\tnumber of files: %d", utils.RepresentBytes(currentSpeed), numFiles)
+			fmt.Printf("\r[Processed_filesize/sec] Read speed: %-25s|\t\tnumber of files: %d", utils.RepresentBytes(currentSpeed)+"/s", numFiles)
 			lastUpdate = time.Now()
 		}
 	}
@@ -174,7 +216,7 @@ func collectResults(
 	if duration > 0 {
 		avgSpeed := int64(float64(totalBytes) / duration)
 		fmt.Println() // Move to a new line after progress updates
-		fmt.Printf("\r[Processed_filesize/sec] Read speed: %s/s\t\t|\t\tnumber of files: %d", utils.RepresentBytes(avgSpeed), numFiles)
+		fmt.Printf("\r[Processed_filesize/sec] Read speed: %-25s|\t\tnumber of files: %d", utils.RepresentBytes(avgSpeed)+"/s", numFiles)
 	}
 }
 
@@ -237,8 +279,7 @@ func CalculateFileHashes(
 	// If any worker encountered a non-ignorable error, it would be returned via fileResult.Err,
 	// but currently the main CalculateFileHashes only returns errors from WalkDir itself.
 	// To truly propagate a worker error to the main function, an error channel would be needed.
-	// For this exercise, we'll stick to the current error handling where non-ignored errors
-	// from checkFile stop the walk, and worker errors are logged/ignored.
+	//
 
 	return hashMap, nil
 }

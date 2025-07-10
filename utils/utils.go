@@ -60,15 +60,17 @@ func Max(a, b int) int {
 	return b
 }
 
-func MD5hash(file io.Reader) (string, error) {
+func HashGen(file io.Reader) (string, error) {
 	if file == nil {
 		return "", fmt.Errorf("nil reader")
 	}
-	hash := md5.New()
-	if _, err := io.Copy(hash, file); err != nil {
+
+	hashEngine := md5.New()
+
+	if _, err := io.Copy(hashEngine, file); err != nil {
 		return "", fmt.Errorf("failed to hash: %w", err)
 	}
-	hashSum := fmt.Sprintf("%x", hash.Sum(nil))
+	hashSum := fmt.Sprintf("%x", hashEngine.Sum(nil))
 	return hashSum, nil
 }
 
@@ -77,7 +79,8 @@ type HashPair struct {
 	Hash     string
 }
 
-func MD5QuickHash(file io.Reader, areasize int64, fileSize int64) (string, error) {
+// engine selects the current algo, 0 = md5, 1 = SHA128
+func QuickHashGen(file io.Reader, areasize int64, fileSize int64) (string, error) {
 	const BIG_MULTIPLIER int = 10
 	var tinyfile bool = false
 	if file == nil {
@@ -101,10 +104,11 @@ func MD5QuickHash(file io.Reader, areasize int64, fileSize int64) (string, error
 		readsize = areasize / 2
 	}
 
-	hash := md5.New()
+	hashEngine := md5.New()
+
 	//hashing
 	if fileSize != 0 {
-		if _, err := io.CopyN(hash, file, readsize); err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
+		if _, err := io.CopyN(hashEngine, file, readsize); err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
 			//EOF are not considered errors, but simply end of the job
 			return "", fmt.Errorf("failed to hash: %w", err)
 		}
@@ -113,14 +117,14 @@ func MD5QuickHash(file io.Reader, areasize int64, fileSize int64) (string, error
 			if err != nil {
 				return "", fmt.Errorf("failed to seek to last %d bytes: %w", readsize, err)
 			}
-			if _, err := io.CopyN(hash, file, readsize); err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
+			if _, err := io.CopyN(hashEngine, file, readsize); err != nil && err != io.ErrUnexpectedEOF && err != io.EOF {
 				//EOF are not considered errors, but simply end of the job
 				return "", fmt.Errorf("failed to hash: %w", err)
 			}
 		}
 	}
 
-	hashSum := hex.EncodeToString(hash.Sum(nil))
+	hashSum := hex.EncodeToString(hashEngine.Sum(nil))
 	return hashSum, nil
 
 }

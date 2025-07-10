@@ -138,15 +138,16 @@ func main() {
 			numThreads,
 			updateFullFlag,
 		)
+
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error calculating hashes: %v\n", err)
+			fmt.Fprintf(os.Stderr, "\nError calculating hashes: %v\n", err)
 			os.Exit(1)
 		}
 		if err = config.SaveMap(filesHashMap); err != nil {
-			fmt.Fprintf(os.Stderr, "Error saving config: %v\n", err)
+			fmt.Fprintf(os.Stderr, "\nError saving config: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Println("File database updated successfully")
+		fmt.Println("\nFiles database updated successfully")
 		fmt.Printf("Number of different files in database: %d\n", len(filesHashMap))
 	} else {
 		var err error
@@ -155,6 +156,23 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
 			os.Exit(1)
 		}
+
+		//COMMENTED OUT AN OLD STUDY OF MINE ABOUT UNIQUESS OF FILES
+		//The files with unique filesize are 53710 and occupy: 185.1 GB on overall 243.5 GB
+		// var uniqueSizesByte int64
+		// var uniquecount int64
+		// var overallSIZE int64
+		// for hashID, path := range filesHashMap {
+		// 	overallSIZE += hashID.Filesize * int64(len(path))
+		// 	if hashID.Hash == "" {
+		// 		uniqueSizesByte += hashID.Filesize
+		// 		uniquecount++
+		// 	}
+		// }
+		// fmt.Printf("\n\nThe files with unique filesize are %d and occupy: %s on overall %s \n\n", uniquecount, utils.RepresentBytes(uniqueSizesByte),
+		// 	utils.RepresentBytes(overallSIZE))
+		// os.Exit(1)
+
 		fmt.Printf("File database loaded, Number of different files in database: %d\n", len(filesHashMap))
 		reversefilesHashMap := config.InvertMap(filesHashMap)
 		if err = workflow.ListFiles(
