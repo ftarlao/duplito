@@ -9,6 +9,20 @@ import (
 	utils "github.com/ftarlao/duplito/utils"
 )
 
+type Options struct {
+	RecurseFlag      bool
+	UpdateFlag       bool
+	UpdateFullFlag   bool
+	IgnoreErrorsFlag bool
+	NumThreads       int // New flag for number of threads
+	Warnings         bool
+	Summary          bool
+	Overall          bool
+	Minperc          int
+	Minbytes         int64
+	OutputType       int //0 ALL, 1 SUMMARY, 2 ONLY FINAL SUMMARY
+}
+
 // loadMap
 // reads the map from ~/.duplito/filemap.gob if it exists.
 // Returns an empty map if the file or folder doesn't exist.

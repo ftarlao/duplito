@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	cfg "github.com/ftarlao/duplito/config"
 	counters "github.com/ftarlao/duplito/counters"
 	utils "github.com/ftarlao/duplito/utils"
 )
@@ -52,7 +53,7 @@ func findFiles(
 	paths []string,
 	tasks chan<- fileTask,
 	wg *sync.WaitGroup,
-	recurse, ignoreErrors bool,
+	opt cfg.Options,
 	ctx context.Context,
 ) {
 	defer wg.Done()
@@ -70,10 +71,10 @@ func findFiles(
 
 			}
 
-			absPath, filesize, checkErr := utils.CheckFile(path, d, err, recurse, path)
+			absPath, filesize, checkErr := utils.CheckFile(path, d, err, opt.RecurseFlag, path)
 			if checkErr != nil && checkErr != filepath.SkipDir {
 				fmt.Fprintf(os.Stderr, "Error while accessing file %s details: %v\n", path, err)
-				if ignoreErrors {
+				if opt.IgnoreErrorsFlag {
 					checkErr = nil
 				}
 				return checkErr
@@ -101,7 +102,7 @@ func findFiles(
 		})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error during directory walk %s: %v\n", pathname, err)
-			if !ignoreErrors {
+			if !opt.IgnoreErrorsFlag {
 				break
 			}
 		}
@@ -116,8 +117,7 @@ func fileWorker(
 	tasks chan fileTask, //being able to close
 	results chan fileResult,
 	wg *sync.WaitGroup,
-	ignoreErrors bool,
-	fullHash bool,
+	opt cfg.Options,
 	cancel context.CancelFunc,
 ) {
 	defer wg.Done()
@@ -126,7 +126,7 @@ func fileWorker(
 		if err != nil {
 			//fmt.Fprintf(os.Stderr, "Worker %d: Error opening %s: %v\n", id, task.Path, err)
 			results <- fileResult{Path: task.AbsPath, Err: fmt.Errorf("Worker %d, failed to open %s: %w", id, task.Path, err)}
-			if ignoreErrors {
+			if opt.IgnoreErrorsFlag {
 				continue
 			} else {
 				cancel() //Stops the file walking
@@ -140,7 +140,7 @@ func fileWorker(
 			{
 				hashSum = ""
 			}
-		case !fullHash:
+		case !opt.UpdateFullFlag:
 			{
 				hashSum, err = utils.QuickHashGen(file, 2*1024*1024, task.Filesize)
 			}
@@ -160,7 +160,7 @@ func fileWorker(
 		if err != nil {
 			//fmt.Fprintf(os.Stderr, "Worker %d: Error hashing %s: %v\n", id, task.Path, err)
 			results <- fileResult{Path: task.AbsPath, Err: fmt.Errorf("Worker %d, failed to hash %s: %w", id, task.Path, err), IsUpdate: task.IsUpdate}
-			if ignoreErrors {
+			if opt.IgnoreErrorsFlag {
 				continue
 			} else {
 				return
@@ -227,24 +227,21 @@ func collectResults(
 // Displays current read speed in-place and final average read speed.
 func CalculateFileHashes(
 	paths []string,
-	ignoreErrors bool,
-	recurseFlag bool,
-	threads int,
-	fullHash bool) (map[utils.HashPair][]string, error) {
+	opt cfg.Options) (map[utils.HashPair][]string, error) {
 	// This gives us a 'ctx' to pass to goroutines and a 'cancel' function
 	// to call when we want to stop them.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if threads <= 0 {
+	if opt.NumThreads <= 0 {
 		return nil, fmt.Errorf("number of threads must be greater than 0")
 	}
 
 	hashMap := make(map[utils.HashPair][]string) // This map will be safely updated by the single collector goroutine
 
 	// Channels for tasks and results
-	tasks := make(chan fileTask, threads*2)     // Buffered channel for files to be processed
-	results := make(chan fileResult, threads*2) // Buffered channel for processed file results
+	tasks := make(chan fileTask, opt.NumThreads*2)     // Buffered channel for files to be processed
+	results := make(chan fileResult, opt.NumThreads*2) // Buffered channel for processed file results
 
 	var wgFindFiles sync.WaitGroup
 	var wgWorkers sync.WaitGroup
@@ -252,17 +249,17 @@ func CalculateFileHashes(
 
 	// 1. Start the file finder goroutine
 	wgFindFiles.Add(1)
-	go findFiles(paths, tasks, &wgFindFiles, recurseFlag, ignoreErrors, ctx)
+	go findFiles(paths, tasks, &wgFindFiles, opt, ctx)
 
 	// 2. Start worker goroutines
-	for i := 0; i < threads; i++ {
+	for i := 0; i < opt.NumThreads; i++ {
 		wgWorkers.Add(1)
-		go fileWorker(i+1, tasks, results, &wgWorkers, ignoreErrors, fullHash, cancel)
+		go fileWorker(i+1, tasks, results, &wgWorkers, opt, cancel)
 	}
 
 	// 3. Start results collector goroutine
 	wgCollector.Add(1)
-	go collectResults(results, hashMap, &wgCollector, ignoreErrors)
+	go collectResults(results, hashMap, &wgCollector, opt.IgnoreErrorsFlag)
 
 	// Wait for the file finder to finish and close the tasks channel
 	wgFindFiles.Wait()
@@ -295,9 +292,7 @@ func processSingleFolder(
 	overallStats *counters.Stats,
 	hashMap map[utils.HashPair][]string,
 	reverseHashMap map[string]utils.HashPair,
-	outputType int,
-	minperc int,
-	minbytes int64,
+	opt cfg.Options,
 ) {
 	var sb strings.Builder
 	var dirStats counters.Stats
@@ -350,10 +345,10 @@ func processSingleFolder(
 		}
 	}
 
-	if minperc <= utils.Max(int(dirStats.DupPerc()), int(dirStats.DupSizePerc())) &&
-		minbytes <= dirStats.SizeofDupFiles {
+	if opt.Minperc <= utils.Max(int(dirStats.DupPerc()), int(dirStats.DupSizePerc())) &&
+		opt.Minbytes <= dirStats.SizeofDupFiles {
 		//Output Directory header
-		if outputType <= 1 {
+		if opt.OutputType <= 1 {
 			fmt.Print(ColorLightBlue)
 			utils.PrintSeparator(SEP_WIDTH)
 			fmt.Printf("FOLDER: %s\n", dir)
@@ -362,10 +357,10 @@ func processSingleFolder(
 			fmt.Print(ColorReset)
 		}
 		//Output Files info for this Directory
-		if outputType == 0 {
+		if opt.OutputType == 0 {
 			fmt.Println(sb.String())
 		}
-		if outputType <= 1 {
+		if opt.OutputType <= 1 {
 			fmt.Println()
 		}
 	}
@@ -373,13 +368,10 @@ func processSingleFolder(
 
 func ListFiles(
 	paths []string,
-	recurse bool,
-	ignoreErrors bool,
+	opt cfg.Options,
 	hashMap map[utils.HashPair][]string,
 	reverseHashMap map[string]utils.HashPair,
-	outputType int,
-	minperc int,
-	minbytes int64) error {
+) error {
 
 	var overallStats counters.Stats
 	var filesInDir []string
@@ -390,10 +382,10 @@ func ListFiles(
 	for _, pathname := range paths {
 		currPath = ""
 		err := utils.HybridWalk(pathname, func(path string, d os.DirEntry, err error) error {
-			absPath, size, err := utils.CheckFile(path, d, err, recurse, pathname)
+			absPath, size, err := utils.CheckFile(path, d, err, opt.RecurseFlag, pathname)
 			if err != nil && err != filepath.SkipDir {
 				fmt.Fprintf(os.Stderr, "Error while accessing file %s details: %v\n", path, err)
-				if ignoreErrors {
+				if opt.IgnoreErrorsFlag {
 					err = nil
 				}
 				return err
@@ -421,9 +413,7 @@ func ListFiles(
 					&overallStats,
 					hashMap,
 					reverseHashMap,
-					outputType,
-					minperc,
-					minbytes,
+					opt,
 				)
 
 				filesInDir = nil
@@ -439,7 +429,7 @@ func ListFiles(
 		if err != nil {
 			errwalk := fmt.Errorf("failed to walk directory or access file %s: %w", pathname, err)
 			fmt.Fprintf(os.Stderr, errwalk.Error())
-			if !ignoreErrors {
+			if !opt.IgnoreErrorsFlag {
 				return err
 			}
 		}
@@ -452,9 +442,7 @@ func ListFiles(
 			&overallStats,
 			hashMap,
 			reverseHashMap,
-			outputType,
-			minperc,
-			minbytes,
+			opt,
 		)
 
 	}
