@@ -29,8 +29,8 @@ When listing files <path1> defaults to current folder "."Options:
   -U, --UPDATE          Update hash database using full file hash (implies -r).
   -d, --duplicates      Only shows the duplicates in filelist (summary not affected).
                         If no paths, defaults to user home (or / for root).
-  -m, --min-file-size   Only lists files with size greater or equal, than the provided filesize.
-                        Directory and overall summaries are not affected.
+  -m, --min-file-size   Only lists files with size greater or equal, than the provided filesize
+                        in bytes. Directory and overall summaries are not affected.
   -i, --ignore-errors   Ignore unreadable/inaccessible files.
   -t, --threads         Number of concurrent hashing threads (default: 3).
 
@@ -38,9 +38,9 @@ When listing files <path1> defaults to current folder "."Options:
                         summary, with statistics.
   -o, --overall         Display only the final overall summary with statistics.
 
-  -p, --min-dir-perc         Visualizes summary and file list only for folders with a percentage
+  -p, --min-dir-perc    Visualizes summary and file list only for folders with a percentage
                         of duplicates greater than the specified value (default: 0%).
-  -b, --min-dir-bytes        Visualizes summary and file list only for folders with a file size
+  -b, --min-dir-bytes   Visualizes summary and file list only for folders with a file size
                         of duplicates that exceeds the provided value (default: 0 byte).
 Behavior:
   -u or -U: Recursively computes and saves file hashes. Paths are
