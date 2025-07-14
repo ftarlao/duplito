@@ -301,11 +301,16 @@ func processSingleFolder(
 	sort.Strings(filesList)
 	for _, path := range filesList {
 		filename := filepath.Base(path)
-		fmt.Fprintf(&sb, "  %-*s", filenamespace, filename)
+
 		filesize := sizeByFile[path]
 
+		oksize := filesize >= opt.MinFileBytes
+
 		if filesize == 0 {
-			fmt.Fprintf(&sb, " %sZERO SIZE%s\n", ColorYellow, ColorReset)
+			utils.FprintfIf(!opt.DuplicatesOnlyFlag && oksize,
+				&sb, "  %-*s", filenamespace, filename)
+			utils.FprintfIf(!opt.DuplicatesOnlyFlag && oksize,
+				&sb, " %sZERO SIZE%s\n", ColorYellow, ColorReset)
 			overallStats.AddIgnoredFile(0)
 			dirStats.AddIgnoredFile(0)
 			continue
@@ -313,7 +318,10 @@ func processSingleFolder(
 
 		hash, exists := reverseHashMap[path]
 		if !exists {
-			fmt.Fprintf(&sb, " %sFILE NOT IN DATABASE%s\n", ColorYellow, ColorReset)
+			utils.FprintfIf(!opt.DuplicatesOnlyFlag && oksize,
+				&sb, "  %-*s", filenamespace, filename)
+			utils.FprintfIf(!opt.DuplicatesOnlyFlag && oksize,
+				&sb, " %sFILE NOT IN DATABASE%s\n", ColorYellow, ColorReset)
 			overallStats.AddIgnoredFile(filesize)
 			dirStats.AddIgnoredFile(filesize)
 			continue
@@ -322,32 +330,35 @@ func processSingleFolder(
 		if len(hashMap[hash]) == 1 {
 			overallStats.AddUniqueFile(filesize)
 			dirStats.AddUniqueFile(filesize)
-			if !opt.DuplicatesOnlyFlag {
-				fmt.Fprintf(&sb, " %sNOT DUPLICATE (%s)%s\n",
-					ColorGreen,
-					utils.RepresentBytes(filesize),
-					ColorReset)
-			}
+			utils.FprintfIf(!opt.DuplicatesOnlyFlag && oksize,
+				&sb, "  %-*s", filenamespace, filename)
+			utils.FprintfIf(!opt.DuplicatesOnlyFlag && oksize,
+				&sb, " %sNOT DUPLICATE (%s)%s\n",
+				ColorGreen,
+				utils.RepresentBytes(filesize),
+				ColorReset)
 
 		} else {
 			overallStats.AddDupFile(filesize)
 			dirStats.AddDupFile(filesize)
 
-			fmt.Fprintf(&sb, " %sDUPLICATE OF: (%s)%s\n",
+			utils.FprintfIf(oksize, &sb, "  %-*s", filenamespace, filename)
+			utils.FprintfIf(oksize, &sb, " %sDUPLICATE OF: (%s)%s\n",
 				ColorLightRed,
 				utils.RepresentBytes(filesize),
 				ColorReset)
 			for _, dupPath := range hashMap[hash] {
 				if dupPath != path {
-					fmt.Fprintf(&sb, "%s- %s%s%s\n", indent, ColorCyan, dupPath, ColorReset)
+					utils.FprintfIf(oksize,
+						&sb, "%s- %s%s%s\n", indent, ColorCyan, dupPath, ColorReset)
 				}
 			}
 
 		}
 	}
 
-	if opt.Minperc <= utils.Max(int(dirStats.DupPerc()), int(dirStats.DupSizePerc())) &&
-		opt.Minbytes <= dirStats.SizeofDupFiles {
+	if opt.MinDirPerc <= utils.Max(int(dirStats.DupPerc()), int(dirStats.DupSizePerc())) &&
+		opt.MinDirBytes <= dirStats.SizeofDupFiles {
 		//Output Directory header
 		if opt.OutputType <= 1 {
 			fmt.Print(ColorLightBlue)

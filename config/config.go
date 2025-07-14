@@ -18,10 +18,11 @@ type Options struct {
 	Warnings           bool
 	Summary            bool
 	Overall            bool
-	Minperc            int
-	Minbytes           int64
+	MinDirPerc         int
+	MinDirBytes        int64
 	OutputType         int //0 ALL, 1 SUMMARY, 2 ONLY FINAL SUMMARY
 	DuplicatesOnlyFlag bool
+	MinFileBytes       int64
 }
 
 // loadMap

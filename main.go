@@ -34,14 +34,16 @@ func customUsage() {
 	fmt.Fprintf(os.Stderr, "  -U, --UPDATE          Update hash database using full file hash (implies -r).\n")
 	fmt.Fprintf(os.Stderr, "  -d, --duplicates      Only shows the duplicates in filelist (summary not affected).\n")
 	fmt.Fprintf(os.Stderr, "                        If no paths, defaults to user home (or / for root).\n")
+	fmt.Fprintf(os.Stderr, "  -m, --min-file-size 	Only lists files with size greater or equal, than the provided filesize.\n")
+	fmt.Fprintf(os.Stderr, "                        Directory and overall summaries are not affected.\n")
 	fmt.Fprintf(os.Stderr, "  -i, --ignore-errors   Ignore unreadable/inaccessible files.\n")
 	fmt.Fprintf(os.Stderr, "  -t, --threads         Number of concurrent hashing threads (default: 3).\n\n")
 	fmt.Fprintf(os.Stderr, "  -s, --summary         Display only 'per' directory summaries and the final overall\n")
 	fmt.Fprintf(os.Stderr, "                        summary, with statistics.\n")
 	fmt.Fprintf(os.Stderr, "  -o, --overall         Display only the final overall summary with statistics.\n\n")
-	fmt.Fprintf(os.Stderr, "  -p, --min-dir-perc         Visualizes summary and file list for folders with a percentage\n")
+	fmt.Fprintf(os.Stderr, "  -p, --min-dir-perc         Visualizes summary and file list only for folders with a percentage\n")
 	fmt.Fprintf(os.Stderr, "                        of duplicates greater than the specified value (default: 0%%).\n")
-	fmt.Fprintf(os.Stderr, "  -b, --min-dir-bytes        Visualizes summary and file list for folders with a file size\n")
+	fmt.Fprintf(os.Stderr, "  -b, --min-dir-bytes        Visualizes summary and file list only for folders with a file size\n")
 	fmt.Fprintf(os.Stderr, "                        of duplicates that exceeds the provided value (default: 0 byte).\n")
 
 	// Behavior Notes
@@ -73,12 +75,14 @@ func init() {
 	flag.BoolVar(&opt.Summary, "summary", false, "") //only folder summary and final summary
 	flag.BoolVar(&opt.Overall, "o", false, "")       //only final summary
 	flag.BoolVar(&opt.Overall, "overall", false, "")
-	flag.IntVar(&opt.Minperc, "p", 0, "")
-	flag.IntVar(&opt.Minperc, "min-dir-perc", 0, "")
-	flag.Int64Var(&opt.Minbytes, "b", 0, "")
-	flag.Int64Var(&opt.Minbytes, "min-dir-bytes", 0, "")
+	flag.IntVar(&opt.MinDirPerc, "p", 0, "")
+	flag.IntVar(&opt.MinDirPerc, "min-dir-perc", 0, "")
+	flag.Int64Var(&opt.MinDirBytes, "b", 0, "")
+	flag.Int64Var(&opt.MinDirBytes, "min-dir-bytes", 0, "")
 	flag.BoolVar(&opt.DuplicatesOnlyFlag, "d", false, "")
 	flag.BoolVar(&opt.DuplicatesOnlyFlag, "duplicates", false, "")
+	flag.Int64Var(&opt.MinFileBytes, "m", 0, "")
+	flag.Int64Var(&opt.MinFileBytes, "min-file-size", 0, "")
 }
 
 func main() {

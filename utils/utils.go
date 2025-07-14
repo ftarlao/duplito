@@ -37,6 +37,16 @@ func RepresentBytes(numbytes int64) string {
 	}
 }
 
+// FprintfIf writes formatted text to a writer if the condition is true.
+// It returns the number of bytes written and any write error encountered.
+// If the condition is false, it writes nothing and returns 0, nil.
+func FprintfIf(condition bool, w io.Writer, format string, a ...interface{}) (n int, err error) {
+	if condition {
+		return fmt.Fprintf(w, format, a...)
+	}
+	return 0, nil // If condition is false, do nothing and return 0 bytes written, no error.
+}
+
 // PrintSeparator prints a line of hyphens that matches the desired width.
 func PrintSeparator(len int) {
 
