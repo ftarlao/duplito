@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	// Import the term package
 )
 
 // func Int64ToBytes(n int64) []byte {
@@ -22,6 +21,9 @@ import (
 // 	return bytes
 // }
 
+// Converts byte number (for filesize) into a string representation with
+// mutliplier. Plesase note that we use the power of 10, because the
+// std MB/KB should not be confused with Mib/KiB ...
 func RepresentBytes(numbytes int64) string {
 	switch {
 	case numbytes >= 1000000000:
@@ -45,7 +47,7 @@ func PrintSeparator(len int) {
 	fmt.Println(separator)
 }
 
-//TODO Convert to generics
+// TODO Convert to generics
 func Min(a, b int) int {
 	if a > b {
 		return b
@@ -53,6 +55,7 @@ func Min(a, b int) int {
 	return a
 }
 
+// TODO Convert to generics
 func Max(a, b int) int {
 	if a > b {
 		return a

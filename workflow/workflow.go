@@ -322,11 +322,12 @@ func processSingleFolder(
 		if len(hashMap[hash]) == 1 {
 			overallStats.AddUniqueFile(filesize)
 			dirStats.AddUniqueFile(filesize)
-
-			fmt.Fprintf(&sb, " %sNOT DUPLICATE (%s)%s\n",
-				ColorGreen,
-				utils.RepresentBytes(filesize),
-				ColorReset)
+			if !opt.DuplicatesOnlyFlag {
+				fmt.Fprintf(&sb, " %sNOT DUPLICATE (%s)%s\n",
+					ColorGreen,
+					utils.RepresentBytes(filesize),
+					ColorReset)
+			}
 
 		} else {
 			overallStats.AddDupFile(filesize)

@@ -32,6 +32,7 @@ func customUsage() {
 	fmt.Fprintf(os.Stderr, "  -u, --update          Update hash database using quick-partial hash (implies -r).\n")
 	fmt.Fprintf(os.Stderr, "                        If no paths, defaults to user home (or / for root).\n")
 	fmt.Fprintf(os.Stderr, "  -U, --UPDATE          Update hash database using full file hash (implies -r).\n")
+	fmt.Fprintf(os.Stderr, "  -d, --duplicates      Only shows the duplicates in filelist (summary not affected).\n")
 	fmt.Fprintf(os.Stderr, "                        If no paths, defaults to user home (or / for root).\n")
 	fmt.Fprintf(os.Stderr, "  -i, --ignore-errors   Ignore unreadable/inaccessible files.\n")
 	fmt.Fprintf(os.Stderr, "  -t, --threads         Number of concurrent hashing threads (default: 3).\n\n")
@@ -73,9 +74,11 @@ func init() {
 	flag.BoolVar(&opt.Overall, "o", false, "")       //only final summary
 	flag.BoolVar(&opt.Overall, "overall", false, "")
 	flag.IntVar(&opt.Minperc, "p", 0, "")
-	flag.IntVar(&opt.Minperc, "minperc", 0, "")
+	flag.IntVar(&opt.Minperc, "min-dir-perc", 0, "")
 	flag.Int64Var(&opt.Minbytes, "b", 0, "")
-	flag.Int64Var(&opt.Minbytes, "minbytes", 0, "")
+	flag.Int64Var(&opt.Minbytes, "min-dir-bytes", 0, "")
+	flag.BoolVar(&opt.DuplicatesOnlyFlag, "d", false, "")
+	flag.BoolVar(&opt.DuplicatesOnlyFlag, "duplicates", false, "")
 }
 
 func main() {
