@@ -41,9 +41,9 @@ func customUsage() {
 	fmt.Fprintf(os.Stderr, "  -s, --summary         Display only 'per' directory summaries and the final overall\n")
 	fmt.Fprintf(os.Stderr, "                        summary, with statistics.\n")
 	fmt.Fprintf(os.Stderr, "  -o, --overall         Display only the final overall summary with statistics.\n\n")
-	fmt.Fprintf(os.Stderr, "  -p, --min-dir-perc         Visualizes summary and file list only for folders with a percentage\n")
+	fmt.Fprintf(os.Stderr, "  -p, --min-dir-perc    Visualizes summary and file list only for folders with a percentage\n")
 	fmt.Fprintf(os.Stderr, "                        of duplicates greater than the specified value (default: 0%%).\n")
-	fmt.Fprintf(os.Stderr, "  -b, --min-dir-bytes        Visualizes summary and file list only for folders with a file size\n")
+	fmt.Fprintf(os.Stderr, "  -b, --min-dir-bytes   Visualizes summary and file list only for folders with a file size\n")
 	fmt.Fprintf(os.Stderr, "                        of duplicates that exceeds the provided value (default: 0 byte).\n")
 
 	// Behavior Notes
