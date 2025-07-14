@@ -1,9 +1,9 @@
 package utils
 
 import (
-	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"hash"
 	"io"
 	"io/fs"
 	"os"
@@ -73,12 +73,13 @@ func Max(a, b int) int {
 	return b
 }
 
-func HashGen(file io.Reader) (string, error) {
+// please provide the hash obj instance unique per worker
+func HashGen(hashEngine hash.Hash, file io.Reader) (string, error) {
 	if file == nil {
 		return "", fmt.Errorf("nil reader")
 	}
 
-	hashEngine := md5.New()
+	hashEngine.Reset() // := md5.New()
 
 	if _, err := io.Copy(hashEngine, file); err != nil {
 		return "", fmt.Errorf("failed to hash: %w", err)
@@ -92,8 +93,8 @@ type HashPair struct {
 	Hash     string
 }
 
-// engine selects the current algo, 0 = md5, 1 = SHA128
-func QuickHashGen(file io.Reader, areasize int64, fileSize int64) (string, error) {
+// please provide the hash obj instance unique per worker
+func QuickHashGen(hashEngine hash.Hash, file io.Reader, areasize int64, fileSize int64) (string, error) {
 	const BIG_MULTIPLIER int = 10
 	var tinyfile bool = false
 	if file == nil {
@@ -117,7 +118,7 @@ func QuickHashGen(file io.Reader, areasize int64, fileSize int64) (string, error
 		readsize = areasize / 2
 	}
 
-	hashEngine := md5.New()
+	hashEngine.Reset() // md5.New()
 
 	//hashing
 	if fileSize != 0 {

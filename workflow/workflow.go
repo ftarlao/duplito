@@ -2,6 +2,7 @@ package workflow
 
 import (
 	"context"
+	"crypto/md5"
 	"errors"
 	"fmt"
 	"os"
@@ -121,6 +122,7 @@ func fileWorker(
 	cancel context.CancelFunc,
 ) {
 	defer wg.Done()
+	myHashEngine := md5.New()
 	for task := range tasks {
 		file, err := os.Open(task.Path)
 		if err != nil {
@@ -142,12 +144,12 @@ func fileWorker(
 			}
 		case !opt.UpdateFullFlag:
 			{
-				hashSum, err = utils.QuickHashGen(file, 2*1024*1024, task.Filesize)
+				hashSum, err = utils.QuickHashGen(myHashEngine, file, 2*1024*1024, task.Filesize)
 			}
 		default:
 			{
 				//remains only the full hash
-				hashSum, err = utils.HashGen(file)
+				hashSum, err = utils.HashGen(myHashEngine, file)
 			}
 		}
 
