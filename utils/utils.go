@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	cfg "github.com/ftarlao/duplito/config"
 )
 
 // func Int64ToBytes(n int64) []byte {
@@ -146,48 +148,47 @@ func QuickHashGen(hashEngine hash.Hash, file io.Reader, areasize int64, fileSize
 // checkFile performs common file checks for WalkDir callbacks.
 // Returns the absolute path and size for valid regular files, or empty string, zero size, and nil to skip,
 // or an error if ignoreErrors is false and a failure occurs.
-func CheckFile(path string, d os.DirEntry, err error, recurse bool, rootPath string) (string, int64, error) {
+func CheckFile(path string, d os.DirEntry, err error, recurse bool, rootPath string) (string, string, int64, error) {
 	if !recurse && d.IsDir() && path != rootPath {
-		return "", 0, filepath.SkipDir
+		return "", "", 0, filepath.SkipDir
 	}
 	if d.IsDir() {
-		return "", 0, nil
+		return "", "", 0, nil
 	}
 	if err != nil {
-		return "", 0, fmt.Errorf("failed to access %s: %v", path, err)
+		return "", "", 0, fmt.Errorf("failed to access %s: %v", path, err)
 	}
 	fileInfo, err := d.Info()
 	if err != nil {
 
-		return "", 0, fmt.Errorf("failed to get info for %s: %v", path, err)
+		return "", "", 0, fmt.Errorf("failed to get info for %s: %v", path, err)
 	}
 	if fileInfo.Mode()&os.ModeSymlink != 0 {
 		//fmt.Fprintf(os.Stderr, "\nSkipping symbolic link %s\n", path)
-		return "", 0, nil
+		return "", "", 0, nil
 	}
 	if !fileInfo.Mode().IsRegular() {
-		return "", 0, fmt.Errorf("%s is not a regular file", path)
+		return "", "", 0, fmt.Errorf("%s is not a regular file", path)
 	}
 	absPath, err := filepath.Abs(path)
+	fileName := filepath.Base(path)
+	folderNameAbs := filepath.Dir(absPath)
 	if err != nil {
-
-		return "", 0, fmt.Errorf("failed to get absolute path for %s: %v", path, err)
+		return "", "", 0, fmt.Errorf("failed to get absolute path for %s: %v", path, err)
 	}
-	return absPath, fileInfo.Size(), nil
+	return fileName, folderNameAbs, fileInfo.Size(), nil
 }
 
 // maxFilenameLength returns the length of the longest filename in the given paths.
 // Returns a minimum of 10 to avoid cramped output.
-func MaxFilenameLength(paths []string) int {
-	maxLen := 0
+func MaxFilenameLength(paths []cfg.FileRecord) int {
+	maxLen := 10
 	for _, path := range paths {
-		if len(filepath.Base(path)) > maxLen {
-			maxLen = len(filepath.Base(path))
+		if len(path.Filename) > maxLen {
+			maxLen = len(path.Filename)
 		}
 	}
-	if maxLen < 10 {
-		maxLen = 10
-	}
+
 	return maxLen
 }
 

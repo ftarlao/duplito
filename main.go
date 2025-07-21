@@ -122,33 +122,41 @@ func main() {
 		}
 	}
 
-	var filesHashMap = make(map[utils.HashPair][]string)
+	// Initialize the DBManager
+	dbManager, err := config.NewDBManager()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error accessing the file data base: %v", err)
+	}
 
 	if opt.UpdateFlag || opt.UpdateFullFlag {
 		opt.RecurseFlag = true // -u implies -r
-		var err error
-		filesHashMap, err = workflow.CalculateFileHashes(
+
+		defer dbManager.Close() // Ensure the database connection is closed when main exits
+
+		err = workflow.CalculateFileHashes(
 			paths,
 			opt,
+			dbManager,
 		)
 
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "\nError calculating hashes: %v\n", err)
 			os.Exit(1)
 		}
-		if err = config.SaveMap(filesHashMap); err != nil {
-			fmt.Fprintf(os.Stderr, "\nError saving config: %v\n", err)
+
+		numFiles, err := dbManager.GetFilesCount()
+		if err == nil {
+			fmt.Fprintf(os.Stderr, "Error while getting number of indexed fiels: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Println("\nFiles database updated successfully")
-		fmt.Printf("Number of different files in database: %d\n", len(filesHashMap))
+		fmt.Printf("Number of files in database: %d\n", numFiles)
 	} else {
-		var err error
-		filesHashMap, err = config.LoadMap()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		numFiles, err := dbManager.GetFilesCount()
+		if err == nil {
+			fmt.Fprintf(os.Stderr, "Error while getting number of indexed fiels: %v\n", err)
 			os.Exit(1)
 		}
+		fmt.Printf("File database loaded, Number of files in database: %d\n", numFiles)
 
 		//COMMENTED OUT AN OLD STUDY OF MINE ABOUT UNIQUESS OF FILES
 		//The files with unique filesize are 53710 and occupy: 185.1 GB on overall 243.5 GB
@@ -166,13 +174,10 @@ func main() {
 		// 	utils.RepresentBytes(overallSIZE))
 		// os.Exit(1)
 
-		fmt.Printf("File database loaded, Number of different files in database: %d\n", len(filesHashMap))
-		reversefilesHashMap := config.InvertMap(filesHashMap)
 		if err = workflow.ListFiles(
 			paths,
 			opt,
-			filesHashMap,
-			reversefilesHashMap,
+			dbManager,
 		); err != nil {
 			fmt.Fprintf(os.Stderr, "Error listing files: %v\n", err)
 			os.Exit(1)

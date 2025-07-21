@@ -34,17 +34,19 @@ const (
 
 // fileTask represents a file to be processed by a worker.
 type fileTask struct {
-	Path     string
-	AbsPath  string
-	Filesize int64
-	RealHash bool
+	Filename   string
+	PathFolder string
+	Filesize   int64
+	RealHash   bool
+	//UpdatePrevious bool
 	IsUpdate bool
 }
 
 // fileResult represents the result of processing a file.
 type fileResult struct {
-	Path       string
-	HashPairID utils.HashPair //contains also filesize
+	Filename   string
+	PathFolder string
+	HashPairID utils.HashPair //contains hash and filesize both
 	Err        error
 	IsUpdate   bool
 }
@@ -53,13 +55,14 @@ type fileResult struct {
 func findFiles(
 	paths []string,
 	tasks chan<- fileTask,
+	dbManager *cfg.DBManager,
 	wg *sync.WaitGroup,
 	opt cfg.Options,
 	ctx context.Context,
+
 ) {
 	defer wg.Done()
-
-	sizeToFileTask := make(map[int64]fileTask) //record the first filetask for a filesize value
+	var filesizeCount map[int64]int = make(map[int64]int)
 
 	for _, pathname := range paths {
 		err := utils.HybridWalk(pathname, func(path string, d os.DirEntry, err error) error {
@@ -72,7 +75,7 @@ func findFiles(
 
 			}
 
-			absPath, filesize, checkErr := utils.CheckFile(path, d, err, opt.RecurseFlag, path)
+			fileName, absFolderPath, filesize, checkErr := utils.CheckFile(path, d, err, opt.RecurseFlag, path)
 			if checkErr != nil && checkErr != filepath.SkipDir {
 				fmt.Fprintf(os.Stderr, "Error while accessing file %s details: %v\n", path, err)
 				if opt.IgnoreErrorsFlag {
@@ -80,24 +83,24 @@ func findFiles(
 				}
 				return checkErr
 			}
-			if absPath == "" { // Skipped by checkFile (e.g., directory, symlink, non-regular, or ignored error)
+			if fileName == "" { // Skipped by checkFile (e.g., directory, symlink, non-regular, or ignored error)
 				return nil
 			}
 
-			ft := fileTask{Path: path, AbsPath: absPath, Filesize: filesize, RealHash: false, IsUpdate: false}
-			if oldTask, ok := sizeToFileTask[filesize]; ok {
-				//Other file with same size
-				ft.RealHash = true
-				if !oldTask.RealHash {
-					//we have not processed the first, let's do it, it's like a delayed processing
-					oldTask.RealHash = true
-					oldTask.IsUpdate = true
-					sizeToFileTask[filesize] = oldTask //update the status for this size
-					tasks <- oldTask                   //sends also the previous task (recalcluate hash)
-				}
-			} else {
-				sizeToFileTask[filesize] = ft
+			num := filesizeCount[filesize]
+			filesizeCount[filesize]++
+
+			ft := fileTask{Filename: fileName,
+				PathFolder: absFolderPath,
+				Filesize:   filesize,
+				RealHash:   false,
+				IsUpdate:   false,
 			}
+
+			if num >= 1 {
+				ft.RealHash = true
+			}
+
 			tasks <- ft
 			return nil
 		})
@@ -124,10 +127,15 @@ func fileWorker(
 	defer wg.Done()
 	myHashEngine := md5.New()
 	for task := range tasks {
-		file, err := os.Open(task.Path)
+		fullAbsFilename := filepath.Join(task.PathFolder, task.Filename)
+		file, err := os.Open(fullAbsFilename)
 		if err != nil {
 			//fmt.Fprintf(os.Stderr, "Worker %d: Error opening %s: %v\n", id, task.Path, err)
-			results <- fileResult{Path: task.AbsPath, Err: fmt.Errorf("Worker %d, failed to open %s: %w", id, task.Path, err)}
+			results <- fileResult{Filename: task.Filename,
+				PathFolder: task.PathFolder,
+				Err: fmt.Errorf("Worker %d, failed to open %s: %w", id,
+					fullAbsFilename,
+					err)}
 			if opt.IgnoreErrorsFlag {
 				continue
 			} else {
@@ -161,21 +169,29 @@ func fileWorker(
 
 		if err != nil {
 			//fmt.Fprintf(os.Stderr, "Worker %d: Error hashing %s: %v\n", id, task.Path, err)
-			results <- fileResult{Path: task.AbsPath, Err: fmt.Errorf("Worker %d, failed to hash %s: %w", id, task.Path, err), IsUpdate: task.IsUpdate}
+			results <- fileResult{Filename: task.Filename,
+				PathFolder: task.PathFolder,
+				Err:        fmt.Errorf("Worker %d, failed to hash %s: %w", id, fullAbsFilename, err),
+				IsUpdate:   task.IsUpdate}
 			if opt.IgnoreErrorsFlag {
 				continue
 			} else {
 				return
 			}
 		}
-		results <- fileResult{Path: task.AbsPath, HashPairID: hashPair, Err: nil, IsUpdate: task.IsUpdate}
+		results <- fileResult{Filename: task.Filename,
+			PathFolder: task.PathFolder,
+			HashPairID: hashPair,
+			Err:        nil,
+			IsUpdate:   task.IsUpdate}
 	}
 }
 
 // collectResults collects results from workers, updates the hash map, and manages progress display.
 func collectResults(
 	results <-chan fileResult,
-	hashMap map[utils.HashPair][]string,
+	task chan fileTask,
+	dbManager *cfg.DBManager,
 	wg *sync.WaitGroup,
 	ignoreErrors bool,
 ) {
@@ -190,18 +206,41 @@ func collectResults(
 			fmt.Fprintf(os.Stderr, "Error, details: %v\n", res.Err)
 			continue
 		}
-		hashMap[res.HashPairID] = append(hashMap[res.HashPairID], res.Path)
+
+		err := dbManager.InsertRow(res.PathFolder, res.Filename,
+			res.HashPairID.Hash, res.HashPairID.Filesize)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error, details: %v\n", res.Err)
+			os.Exit(0)
+		}
+
 		if !res.IsUpdate {
 			totalBytes += res.HashPairID.Filesize
 			numFiles++
-		} else {
-			//remove the older fake HashID that has an empty Hash part "" ; this one was useful
-			//ONLY when ONE file has this filesize (no computation performed)
-			oldPair := utils.HashPair{
-				Filesize: res.HashPairID.Filesize,
-				Hash:     "",
+		}
+
+		num, err := dbManager.GetCountByFilesize(res.HashPairID.Filesize)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error, details: %v\n", res.Err)
+			os.Exit(0)
+		}
+		if num == 2 {
+			//look for old fake hash, the first inserted filesize
+			var records []cfg.FileRecord
+			records, err = dbManager.GetRecordsByHashAndFilesize("", res.HashPairID.Filesize)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error, details: %v\n", res.Err)
+				os.Exit(0)
 			}
-			delete(hashMap, oldPair)
+			faulty := records[0]
+			var updateTask fileTask = fileTask{
+				Filename:   faulty.Filename,
+				PathFolder: faulty.Directory,
+				Filesize:   faulty.Filesize,
+				RealHash:   true,
+				IsUpdate:   true,
+			}
+			task <- updateTask
 		}
 
 		// Update progress display
@@ -229,17 +268,16 @@ func collectResults(
 // Displays current read speed in-place and final average read speed.
 func CalculateFileHashes(
 	paths []string,
-	opt cfg.Options) (map[utils.HashPair][]string, error) {
+	opt cfg.Options,
+	dbManager *cfg.DBManager) error {
 	// This gives us a 'ctx' to pass to goroutines and a 'cancel' function
 	// to call when we want to stop them.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	if opt.NumThreads <= 0 {
-		return nil, fmt.Errorf("number of threads must be greater than 0")
+		return fmt.Errorf("number of threads must be greater than 0")
 	}
-
-	hashMap := make(map[utils.HashPair][]string) // This map will be safely updated by the single collector goroutine
 
 	// Channels for tasks and results
 	tasks := make(chan fileTask, opt.NumThreads*2)     // Buffered channel for files to be processed
@@ -251,7 +289,7 @@ func CalculateFileHashes(
 
 	// 1. Start the file finder goroutine
 	wgFindFiles.Add(1)
-	go findFiles(paths, tasks, &wgFindFiles, opt, ctx)
+	go findFiles(paths, tasks, dbManager, &wgFindFiles, opt, ctx)
 
 	// 2. Start worker goroutines
 	for i := 0; i < opt.NumThreads; i++ {
@@ -261,7 +299,7 @@ func CalculateFileHashes(
 
 	// 3. Start results collector goroutine
 	wgCollector.Add(1)
-	go collectResults(results, hashMap, &wgCollector, opt.IgnoreErrorsFlag)
+	go collectResults(results, tasks, dbManager, &wgCollector, opt.IgnoreErrorsFlag)
 
 	// Wait for the file finder to finish and close the tasks channel
 	wgFindFiles.Wait()
@@ -280,7 +318,7 @@ func CalculateFileHashes(
 	// To truly propagate a worker error to the main function, an error channel would be needed.
 	//
 
-	return hashMap, nil
+	return nil
 }
 
 const TERM_POS int = 100                   //limits the positioning of file status in output
@@ -288,29 +326,31 @@ const SEP_WIDTH int = 70                   //width of  ---  separator
 var indent string = strings.Repeat(" ", 8) // one tabs (8 spaces) from filename column start
 
 func processSingleFolder(
-	filesList []string,
+	filesList []cfg.FileRecord,
 	dir string,
-	sizeByFile map[string]int64,
+	dbManager *cfg.DBManager,
 	overallStats *counters.Stats,
-	hashMap map[utils.HashPair][]string,
-	reverseHashMap map[string]utils.HashPair,
 	opt cfg.Options,
 ) {
 	var sb strings.Builder
 	var dirStats counters.Stats
 
 	filenamespace := utils.Min(utils.MaxFilenameLength(filesList)+8, TERM_POS)
-	sort.Strings(filesList)
+	// Sort by Directory (ascending), then by Filename (ascending)
+	sort.Slice(filesList, func(i, j int) bool {
+		if filesList[i].Directory != filesList[j].Directory {
+			return filesList[i].Directory < filesList[j].Directory
+		}
+		return filesList[i].Filename < filesList[j].Filename
+	})
+
 	for _, path := range filesList {
-		filename := filepath.Base(path)
 
-		filesize := sizeByFile[path]
+		oksize := path.Filesize >= opt.MinFileBytes
 
-		oksize := filesize >= opt.MinFileBytes
-
-		if filesize == 0 {
+		if path.Filesize == 0 {
 			utils.FprintfIf(!opt.DuplicatesOnlyFlag && oksize,
-				&sb, "  %-*s", filenamespace, filename)
+				&sb, "  %-*s", filenamespace, path.Filename)
 			utils.FprintfIf(!opt.DuplicatesOnlyFlag && oksize,
 				&sb, " %sZERO SIZE%s\n", ColorYellow, ColorReset)
 			overallStats.AddIgnoredFile(0)
@@ -318,38 +358,45 @@ func processSingleFolder(
 			continue
 		}
 
-		hash, exists := reverseHashMap[path]
-		if !exists {
+		fileRecord, _ := dbManager.GetRecordByDirFilename(path.Directory, path.Filename)
+
+		if fileRecord == nil {
 			utils.FprintfIf(!opt.DuplicatesOnlyFlag && oksize,
-				&sb, "  %-*s", filenamespace, filename)
+				&sb, "  %-*s", filenamespace, path.Filename)
 			utils.FprintfIf(!opt.DuplicatesOnlyFlag && oksize,
 				&sb, " %sFILE NOT IN DATABASE%s\n", ColorYellow, ColorReset)
-			overallStats.AddIgnoredFile(filesize)
-			dirStats.AddIgnoredFile(filesize)
+			overallStats.AddIgnoredFile(path.Filesize)
+			dirStats.AddIgnoredFile(path.Filesize)
 			continue
 		}
 
-		if len(hashMap[hash]) == 1 {
-			overallStats.AddUniqueFile(filesize)
-			dirStats.AddUniqueFile(filesize)
+		withSameHash, err := dbManager.GetRecordsByHashAndFilesize(path.Hash, path.Filesize)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "File database access, details: %v\n", err)
+			os.Exit(0)
+		}
+
+		if len(withSameHash) == 1 {
+			overallStats.AddUniqueFile(path.Filesize)
+			dirStats.AddUniqueFile(path.Filesize)
 			utils.FprintfIf(!opt.DuplicatesOnlyFlag && oksize,
-				&sb, "  %-*s", filenamespace, filename)
+				&sb, "  %-*s", filenamespace, path.Filename)
 			utils.FprintfIf(!opt.DuplicatesOnlyFlag && oksize,
 				&sb, " %sNOT DUPLICATE (%s)%s\n",
 				ColorGreen,
-				utils.RepresentBytes(filesize),
+				utils.RepresentBytes(path.Filesize),
 				ColorReset)
 
 		} else {
-			overallStats.AddDupFile(filesize)
-			dirStats.AddDupFile(filesize)
+			overallStats.AddDupFile(path.Filesize)
+			dirStats.AddDupFile(path.Filesize)
 
-			utils.FprintfIf(oksize, &sb, "  %-*s", filenamespace, filename)
+			utils.FprintfIf(oksize, &sb, "  %-*s", filenamespace, path.Filesize)
 			utils.FprintfIf(oksize, &sb, " %sDUPLICATE OF: (%s)%s\n",
 				ColorLightRed,
-				utils.RepresentBytes(filesize),
+				utils.RepresentBytes(path.Filesize),
 				ColorReset)
-			for _, dupPath := range hashMap[hash] {
+			for _, dupPath := range withSameHash {
 				if dupPath != path {
 					utils.FprintfIf(oksize,
 						&sb, "%s- %s%s%s\n", indent, ColorCyan, dupPath, ColorReset)
@@ -383,20 +430,20 @@ func processSingleFolder(
 func ListFiles(
 	paths []string,
 	opt cfg.Options,
-	hashMap map[utils.HashPair][]string,
-	reverseHashMap map[string]utils.HashPair,
+	dbManager *cfg.DBManager,
 ) error {
 
 	var overallStats counters.Stats
-	var filesInDir []string
+	var filesInDir []cfg.FileRecord
 	var currPath string
-	//filesByDir := make(map[string][]string)
-	sizeByFile := make(map[string]int64)
 
 	for _, pathname := range paths {
 		currPath = ""
 		err := utils.HybridWalk(pathname, func(path string, d os.DirEntry, err error) error {
-			absPath, size, err := utils.CheckFile(path, d, err, opt.RecurseFlag, pathname)
+			var newFile cfg.FileRecord
+			newFile.Filename, newFile.Directory, newFile.Filesize, err = utils.CheckFile(path, d, err, opt.RecurseFlag, pathname)
+			newFile.Hash = ""
+
 			if err != nil && err != filepath.SkipDir {
 				fmt.Fprintf(os.Stderr, "Error while accessing file %s details: %v\n", path, err)
 				if opt.IgnoreErrorsFlag {
@@ -407,36 +454,31 @@ func ListFiles(
 			if err != nil {
 				return err
 			}
-			if absPath == "" {
+			if newFile.Filename == "" {
 				return nil
 			}
 
-			dir := filepath.Dir(absPath)
 			if currPath == "" {
 				//first time, let's use the first folder
-				currPath = dir
+				currPath = newFile.Directory
 			}
 
-			if currPath != dir {
+			if currPath != newFile.Directory {
 				//we are in another folder let's process previous one
 
 				processSingleFolder(
 					filesInDir,
 					currPath,
-					sizeByFile,
+					dbManager,
 					&overallStats,
-					hashMap,
-					reverseHashMap,
 					opt,
 				)
 
 				filesInDir = nil
-				sizeByFile = make(map[string]int64)
-				currPath = dir
+				currPath = newFile.Directory
 			}
 
-			filesInDir = append(filesInDir, absPath)
-			sizeByFile[absPath] = size
+			filesInDir = append(filesInDir, newFile)
 
 			return nil
 		})
@@ -452,10 +494,8 @@ func ListFiles(
 		processSingleFolder(
 			filesInDir,
 			currPath,
-			sizeByFile,
+			dbManager,
 			&overallStats,
-			hashMap,
-			reverseHashMap,
 			opt,
 		)
 
