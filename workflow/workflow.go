@@ -53,6 +53,7 @@ type fileResult struct {
 func findFiles(
 	paths []string,
 	tasks chan<- fileTask,
+	results chan<- fileResult,
 	wg *sync.WaitGroup,
 	opt cfg.Options,
 	ctx context.Context,
@@ -95,10 +96,16 @@ func findFiles(
 					sizeToFileTask[filesize] = oldTask //update the status for this size
 					tasks <- oldTask                   //sends also the previous task (recalcluate hash)
 				}
+				tasks <- ft
 			} else {
 				sizeToFileTask[filesize] = ft
+				hashPair := utils.HashPair{
+					Filesize: filesize,
+					Hash:     "",
+				}
+				results <- fileResult{Path: absPath, Err: nil, IsUpdate: false, HashPairID: hashPair}
 			}
-			tasks <- ft
+
 			return nil
 		})
 		if err != nil {
@@ -137,20 +144,11 @@ func fileWorker(
 		}
 		var hashSum string
 
-		switch {
-		case !task.RealHash:
-			{
-				hashSum = ""
-			}
-		case !opt.UpdateFullFlag:
-			{
-				hashSum, err = utils.QuickHashGen(myHashEngine, file, 2*1024*1024, task.Filesize)
-			}
-		default:
-			{
-				//remains only the full hash
-				hashSum, err = utils.HashGen(myHashEngine, file)
-			}
+		if !opt.UpdateFullFlag {
+			hashSum, err = utils.QuickHashGen(myHashEngine, file, 2*1024*1024, task.Filesize)
+		} else {
+			//remains only the full hash
+			hashSum, err = utils.HashGen(myHashEngine, file)
 		}
 
 		hashPair := utils.HashPair{
@@ -251,7 +249,7 @@ func CalculateFileHashes(
 
 	// 1. Start the file finder goroutine
 	wgFindFiles.Add(1)
-	go findFiles(paths, tasks, &wgFindFiles, opt, ctx)
+	go findFiles(paths, tasks, results, &wgFindFiles, opt, ctx)
 
 	// 2. Start worker goroutines
 	for i := 0; i < opt.NumThreads; i++ {
