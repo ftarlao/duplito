@@ -27,7 +27,6 @@ When listing files <path1> defaults to current folder "."Options:
                         If no paths, defaults to user home (or / for root).
   -U, --UPDATE          Update hash database using full file hash (implies -r).
   -d, --duplicates      Only shows the duplicates in filelist (summary not affected).
-                        If no paths, defaults to user home (or / for root).
   -m, --min-file-size   Only lists files with size greater or equal, than the provided filesize
                         in bytes. Directory and overall summaries are not affected.
   -i, --ignore-errors   Ignore unreadable/inaccessible files.
