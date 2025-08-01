@@ -3,6 +3,7 @@
 Duplito is a lightweight, efficient **command-line tool** designed to help you identify duplicate files on your system. Whether you're cleaning up old 
 downloads, organizing photos, or freeing up disk space, Duplito makes the process simple and straightforward.
 Duplito lists the files in folders (like 'ls' command or like 'find') by highlighting what is duplicate (and where its duplicates are) and what is not.
+<img width="3167" height="1326" alt="exampleoutput" src="https://github.com/user-attachments/assets/24980e9a-161c-4bfc-a9cb-bfe2f290535c" />
 
 ## Features
 
